@@ -154,20 +154,28 @@ def plot_az_el_multisat(df, var, cmap='jet'):
 
     '''
 
+
     fig, ax = plt.subplots()
 
+    # take the minimum and maximum value within the dataframe and use it to
+    # make sure that colors mean the same thing for different
+    # satellite tracks
+    minval, maxval = np.nanmin(df[var]), np.nanmax(df[var])
+    minval, maxval = np.nanpercentile(df[var].astype('float'), 5.), np.nanpercentile(df[var].astype('float'), 95.)
     satellites = df['SVID'].unique()
     for sat in satellites:
         if sat < 37:
             iddf = df[df.SVID == sat]
             plotdata = iddf[var].values
             x, y = azel_to_xy(iddf) # (df, id)
-            print('For sat {} we have {} - {} - {}'.format(sat, len(x), len(y), len(plotdata)))
-            azel = ax.scatter(x, y, c=plotdata, cmap=plt.cm.get_cmap(cmap), label='sat {}'.format(sat))
+            # print('For sat {} we have {} - {} - {}'.format(sat, len(x), len(y), len(plotdata)))
+            print('Scale: {} - {}, min, max here {} - {}'.format(minval, maxval, np.nanmin(plotdata), np.nanmax(plotdata)))
+            azel = ax.scatter(x, y, c=plotdata, vmin=minval, vmax=maxval, cmap=plt.cm.get_cmap(cmap),
+                            label='sat {}'.format(sat))
 
     ax.set_xlabel('x = cos [ Elevation] sin [ Azimuth ]')
     ax.set_ylabel('y = cos [ Elevation ] cos [ Azimuth ]')
-    # plt.colorbar(azel, ax=ax)
+    plt.colorbar(azel, ax=ax)
     fig.savefig('azelplot_{}_multisat.png'.format(var))
     plt.close(fig)
 
@@ -188,9 +196,15 @@ def main():
 
     data = read_ismr(ismrfile)
 
+    pc = 10
+    var = 'sig1_S4'
+    print('Percentile {}'.format(np.nanpercentile(data[var].astype('float'), pc)))
+
     plot_az_el(data, 1, 'sig1_S4')
     plot_az_el_multisat(data, 'sig1_S4', cmap='RdBu_r')
     plot_az_el_multisat(data, 'sig1_TEC', cmap='hot')
+
+    return
 
     satellites = data['SVID'].unique()
     for sat in satellites:
