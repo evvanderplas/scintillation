@@ -21,7 +21,7 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
         print('gpsweek: {} => {}'.format(gpsweek.shape, date_array.shape))
         for i, week in enumerate(gpsweek):
-            date_array[i] = gps_start + dt.timedelta(days=week*7, seconds=gpsseconds[i])
+            date_array[i] = gps_start + dt.timedelta(days=np.float(week*7.), seconds=np.float(gpsseconds[i]))
 
         return date_array
 
@@ -160,21 +160,24 @@ def plot_az_el_multisat(df, var, cmap='jet'):
     # take the minimum and maximum value within the dataframe and use it to
     # make sure that colors mean the same thing for different
     # satellite tracks
-    minval, maxval = np.nanmin(df[var]), np.nanmax(df[var])
-    minval, maxval = np.nanpercentile(df[var].astype('float'), 5.), np.nanpercentile(df[var].astype('float'), 95.)
+    # minval, maxval = np.nanmin(df[var]), np.nanmax(df[var])
+    minval = np.nanpercentile(df[var].astype('float'), 10.) 
+    maxval = np.nanpercentile(df[var].astype('float'), 95.)
     satellites = df['SVID'].unique()
     for sat in satellites:
         if sat < 37:
             iddf = df[df.SVID == sat]
-            plotdata = iddf[var].values
+            plotdata = iddf[var].astype(float).values
             x, y = azel_to_xy(iddf) # (df, id)
             # print('For sat {} we have {} - {} - {}'.format(sat, len(x), len(y), len(plotdata)))
             print('Scale: {} - {}, min, max here {} - {}'.format(minval, maxval, np.nanmin(plotdata), np.nanmax(plotdata)))
-            azel = ax.scatter(x, y, c=plotdata, vmin=minval, vmax=maxval, cmap=plt.cm.get_cmap(cmap),
+            azel = ax.scatter(x, y, c=plotdata, vmin=minval, vmax=maxval,
+                            cmap=plt.cm.get_cmap(cmap), linewidths=0, edgecolors=None,
                             label='sat {}'.format(sat))
 
-    ax.set_xlabel('x = cos [ Elevation] sin [ Azimuth ]')
-    ax.set_ylabel('y = cos [ Elevation ] cos [ Azimuth ]')
+    ax.set_xlabel('$x = \cos \ \epsilon \quad \sin \ \phi$')
+    ax.set_ylabel('$y = \cos \ \epsilon \quad \cos \ \phi$')
+    ax.set_title('Tracks: {}'.format(var))
     plt.colorbar(azel, ax=ax)
     fig.savefig('azelplot_{}_multisat.png'.format(var))
     plt.close(fig)
@@ -202,7 +205,7 @@ def main():
 
     plot_az_el(data, 1, 'sig1_S4')
     plot_az_el_multisat(data, 'sig1_S4', cmap='RdBu_r')
-    plot_az_el_multisat(data, 'sig1_TEC', cmap='hot')
+    plot_az_el_multisat(data, 'sig1_TEC', cmap='hot_r')
 
     return
 
