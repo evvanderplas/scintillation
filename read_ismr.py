@@ -33,13 +33,15 @@ NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue', 'azimuth', 'elev
          'sig1_T', 'sig2_T', 'sig3_T'
          ]
 
-def dt2ts(dt):
+def dt2ts(dttime):
     """
         Converts a datetime object to UTC timestamp
         naive datetime will be considered UTC.
+        https://stackoverflow.com/questions/5067218/get-utc-timestamp-in-python-with-datetime
     """
 
-    return calendar.timegm(dt.utctimetuple())
+    # return calendar.timegm(dttime.utctimetuple())
+    return pd.Series(dttime.view('int64'), dtype='float')
 
 def init_db(cursor, tabname='sep_data'):
     '''
@@ -48,7 +50,7 @@ def init_db(cursor, tabname='sep_data'):
 
     namelist = ','.join('{} REAL'.format(name) for name in NAMES)
     namelist += ', time INTEGER'
-    create_table_sql = '''CREATE TABLE IF NOT EXISTS {}} (
+    create_table_sql = '''CREATE TABLE IF NOT EXISTS {} (
         {}
     )
     '''.format(tabname, namelist)
@@ -68,6 +70,8 @@ def write_to_sqlite(df, dbname='scint.db', loc='SABA'):
     c = conn.cursor()
 
     init_db(c, tabname='sep_data')
+    df['timestamp'] = dt2ts(df.t)
+    df.drop('t')
     df.to_sql('sep_data', c)
 
     return
@@ -81,14 +85,16 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
     gps_start = dt.datetime(1980,1,6,0,0,0)
     if isinstance(gpsweek, np.ndarray):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
-        print('gpsweek: {} => {}'.format(gpsweek.shape, date_array.shape))
+        print('gpsweek: {} => {}\n{} + {}'.format(gpsweek.shape, date_array.shape, gpsweek, gpsseconds))
         for i, week in enumerate(gpsweek):
-            date_array[i] = gps_start + dt.timedelta(days=week*7, seconds=gpsseconds[i])
+            if np.isnan(week):
+                continue
+            date_array[i] = gps_start + dt.timedelta(days=week*7., seconds=gpsseconds[i])
 
         return date_array
 
     else:
-        date_array = gps_start + dt.timedelta(days=gpsweek*7, seconds=gpsseconds)
+        date_array = gps_start + dt.timedelta(days=gpsweek*7., seconds=gpsseconds)
 
     return date_array
 

@@ -19,9 +19,12 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
     gps_start = dt.datetime(1980,1,6,0,0,0)
     if isinstance(gpsweek, np.ndarray):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
-        print('gpsweek: {} => {}'.format(gpsweek.shape, date_array.shape))
+        print('gpsweek: shape: {} => {}, \n{} + {}'.format(gpsweek.shape, date_array.shape, gpsweek, gpsseconds))
         for i, week in enumerate(gpsweek):
-            date_array[i] = gps_start + dt.timedelta(days=np.float(week*7.), seconds=np.float(gpsseconds[i]))
+            if week == np.nan:
+                continue
+            else:
+                date_array[i] = gps_start + dt.timedelta(days=np.float(week*7.), seconds=np.float(gpsseconds[i]))
 
         return date_array
 
@@ -161,7 +164,7 @@ def plot_az_el_multisat(df, var, cmap='jet'):
     # make sure that colors mean the same thing for different
     # satellite tracks
     # minval, maxval = np.nanmin(df[var]), np.nanmax(df[var])
-    minval = np.nanpercentile(df[var].astype('float'), 10.) 
+    minval = np.nanpercentile(df[var].astype('float'), 10.)
     maxval = np.nanpercentile(df[var].astype('float'), 95.)
     satellites = df['SVID'].unique()
     for sat in satellites:
