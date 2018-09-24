@@ -70,9 +70,9 @@ def write_to_sqlite(df, dbname='scint.db', loc='SABA'):
     c = conn.cursor()
 
     init_db(c, tabname='sep_data')
-    df['timestamp'] = dt2ts(df.t)
-    df.drop('t')
-    df.to_sql('sep_data', c)
+    # df['timestamp'] = dt2ts(df.t)
+    # df.drop('t')
+    df.to_sql('sep_data', conn)
 
     return
 
@@ -85,18 +85,23 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
     gps_start = dt.datetime(1980,1,6,0,0,0)
     if isinstance(gpsweek, np.ndarray):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
+        timestamp_array = np.zeros_like(gpsweek, dtype=np.float64)
         print('gpsweek: {} => {}\n{} + {}'.format(gpsweek.shape, date_array.shape, gpsweek, gpsseconds))
         for i, week in enumerate(gpsweek):
             if np.isnan(week):
                 continue
-            date_array[i] = gps_start + dt.timedelta(days=week*7., seconds=gpsseconds[i])
+            # print('Time delta days = week : {},'.format(week))
+            # print( 'seconds: {}'.format(gpsseconds[i]) )
+            date_array[i] = gps_start + dt.timedelta(days=week*7., seconds=np.float(1.* gpsseconds[i]))
+            timestamp_array = date_array[i].timestamp()
 
-        return date_array
+        return date_array, timestamp_array
 
     else:
-        date_array = gps_start + dt.timedelta(days=gpsweek*7., seconds=gpsseconds)
+        date_array = gps_start + dt.timedelta(days=gpsweek*7., seconds=np.float64(gpsseconds))
+        timestamp_array = date_array.timestamp()
 
-    return date_array
+    return date_array, timestamp_array
 
 
 def read_ismr(infile):
@@ -109,7 +114,10 @@ def read_ismr(infile):
     with open(infile, 'r') as ismr:
         df = pd.read_csv(ismr, header=None, names=NAMES, na_values='nan')
 
-    df['t'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
+    for week in df.weeknumber.values:
+        print('Got week {}'.format(week))
+
+    _, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
     print(df.head())
 
     return df
