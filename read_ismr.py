@@ -72,7 +72,7 @@ def write_to_sqlite(df, dbname='scint.db', loc='SABA'):
     init_db(c, tabname='sep_data')
     # df['timestamp'] = dt2ts(df.t)
     # df.drop('t')
-    df.to_sql('sep_data', conn)
+    df.to_sql('sep_data', conn, if_exists='append')
 
     return
 
@@ -110,12 +110,12 @@ def read_ismr(infile):
         return panda dataframe
     '''
 
-
+    print('Parsing {}'.format(infile))
     with open(infile, 'r') as ismr:
         df = pd.read_csv(ismr, header=None, names=NAMES, na_values='nan')
 
-    for week in df.weeknumber.values:
-        print('Got week {}'.format(week))
+    # for week in df.weeknumber.values:
+    #     print('Got week {}'.format(week))
 
     _, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
     print(df.head())
