@@ -86,7 +86,7 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
     if isinstance(gpsweek, np.ndarray):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
         timestamp_array = np.zeros_like(gpsweek, dtype=np.float64)
-        print('gpsweek: {} => {}\n{} + {}'.format(gpsweek.shape, date_array.shape, gpsweek, gpsseconds))
+        # print('gpsweek: {} => {}\n{} + {}'.format(gpsweek.shape, date_array.shape, gpsweek, gpsseconds))
         for i, week in enumerate(gpsweek):
             if np.isnan(week):
                 continue
