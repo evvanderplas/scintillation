@@ -98,7 +98,10 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
     if loc is not None:
         tag += '_{}'.format(loc)
     if svid is not None:
-        tag += '_{}'.format(str(svid).zfill(2))
+        if isinstance(svid, int):
+            tag += '_{}'.format(str(svid).zfill(2))
+        elif isinstance(svid, (tuple,list)):
+            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
     if tstart is not None and isinstance(tstart, dt.datetime):
         tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
 
@@ -133,7 +136,10 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
     if loc is not None:
         tag += '_{}'.format(loc)
     if svid is not None:
-        tag += '_{}'.format(str(svid).zfill(2))
+        if isinstance(svid, int):
+            tag += '_{}'.format(str(svid).zfill(2))
+        elif isinstance(svid, (tuple,list)):
+            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
     if tstart is not None and isinstance(tstart, dt.datetime):
         tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
 
@@ -266,7 +272,7 @@ if __name__ == '__main__':
     startdate = dt.datetime(2018,5,1,0,0,0)
     enddate = dt.datetime(2018,5,15,0,0,0)
 
-    S4 = time_plot('sig1_S4', ismrdb, tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
-    TEC = time_plot('sig1_TEC', ismrdb,  svid=range(38,62), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
-    hist_plot('sig1_S4', ismrdb,  tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
-    hist_plot('sig1_TEC', ismrdb,  tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
+    S4 = time_plot('sig1_S4', ismrdb, svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
+    TEC = time_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
+    hist_plot('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
+    hist_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
