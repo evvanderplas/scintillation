@@ -27,11 +27,13 @@ def saba_map(var='TEC', outdir = './'):
     # fig, ax = plt.subplots(projection=ccrs.PlateCarree())
     ax = plt.axes(projection=ccrs.PlateCarree())
 
+    extent = ( -66., -59., 13., 21.)
+    ax.set_extent(extent, crs=ccrs.PlateCarree())
     ax.coastlines(resolution='50m', color='black', linewidth=1)
-    extent = (10., 25., -70., -55.)
-    ax.set_extent(extent)
+    gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+              linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
     plt.show()
-    return 
+    return
 
     figfile =  os.path.join(outdir, 'saba_{}.png'.format(var))
     fig.savefig(figfile, dpi=400)

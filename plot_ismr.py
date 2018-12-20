@@ -179,7 +179,13 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
 def azel_to_xy(df, id=None):
     '''
         Compute x,y from azimuth and elevation in dataframe
+        following:
+        x = cos e * cos phi
+        y = sin e * sin phi
+
     '''
+
+    HEIGHT = 20200 # altitude of GPS satellites in km
 
     if id is not None:
         iddf = df[df.SVID == id]
@@ -189,18 +195,14 @@ def azel_to_xy(df, id=None):
     azdata = 2. * np.pi * (iddf['azimuth']/360.)
     eldata = 2. * np.pi * (iddf['elevation']/360.)
 
-    x = np.cos(eldata) * np.sin(azdata)
-    y = np.cos(eldata) * np.cos(azdata)
+    x = HEIGHT * np.cos(eldata) * np.sin(azdata)
+    y = HEIGHT * np.cos(eldata) * np.cos(azdata)
 
     return x,y
 
 def plot_az_el(df, id, var, cmap='jet'):
     '''
         Plot a variable as function of azimuth and elevation angle
-        following:
-        x = cos e * cos phi
-        y = sin e * sin phi
-
     '''
 
     plotdata = df[df.SVID == id][var].values
@@ -259,6 +261,7 @@ if __name__ == '__main__':
 
     ismrdb_path = './'
     ismrdb_path = '/data/storage/trop/users/plas/SW'
+    ismrdb_path = '/Users/plas/data/SW'
     loc = 'SABA'
     loc = 'SEUT'
     ismrdb = os.path.join(ismrdb_path,'test_scint_{}.db'.format(loc))
