@@ -29,7 +29,7 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
         checksql = 'PRAGMA table_info({})'.format(table)
         c.execute(checksql)
         cols = c.fetchall()
-        # log.debug('Columns: {}'.format(cols))
+        log.debug('Columns: {}'.format(cols))
 
     if (isinstance(tstart, dt.datetime) and (isinstance(tend, dt.datetime))):
         timestart, timeend = tstart.timestamp(), tend.timestamp()
@@ -37,7 +37,6 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
         timestart, timeend = tstart, tend
 
     sql_stat = 'SELECT {} FROM {}  WHERE ' # SVID = {}'
-    log.debug('SQL: {}'.format(sql_stat))
     sql_crit = []
 
     log.debug('Which satellites: {}'.format(svid))
@@ -56,7 +55,7 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
     sql_stat += ' AND '.join(sql_crit)
     vars = ','.join(var for var in varlist)
     log.debug('Start reading: {}'.format(sql_stat.format(vars, table, svid)))
-    c.execute(sql_stat.format(vars  , table, svid))
+    c.execute(sql_stat.format(vars, table, svid))
     data = c.fetchall()
     log.debug('Shape of data; {}'.format(len(data))) # , data[0].shape))
     log.debug('Data: {}'.format(data[:20])) # , data[0].shape))
@@ -122,7 +121,7 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
         log.warning('Output directory: {}'.format(e))
 
     if plotdata is None:
-        plotdata = get_sqlite_data([var, 'timestamp'], db, tstart=tstart, tend=tend, log=log)
+        plotdata = get_sqlite_data([var, 'timestamp'], db, svid=svid, tstart=tstart, tend=tend, log=log)
 
     allvardata = np.array([np.float(t[0]) for t in plotdata])
     # nanvar = np.array(['nan' in allvar for allvar in allvardata], dtype='bool')
@@ -260,7 +259,7 @@ if __name__ == '__main__':
     ismrdb_path = './'
     ismrdb_path = '/data/storage/trop/users/plas/SW'
     loc = 'SABA'
-    loc = 'SEUT'
+    # loc = 'SEUT'
     ismrdb = os.path.join(ismrdb_path,'test_scint_{}.db'.format(loc))
 
     logger = logging.getLogger('plotting')
@@ -269,10 +268,14 @@ if __name__ == '__main__':
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
 
-    startdate = dt.datetime(2018,5,1,0,0,0)
-    enddate = dt.datetime(2018,5,15,0,0,0)
+    startdate = dt.datetime(2018,5,4,0,0,0)
+    enddate = dt.datetime(2018,5,10,0,0,0)
 
-    S4 = time_plot('sig1_S4', ismrdb, svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
-    TEC = time_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
-    hist_plot('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
-    hist_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
+    # S4 = time_plot('sig1_S4', ismrdb, svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
+    # TEC = time_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
+    # hist_plot('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
+    # hist_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
+    hist_plot('sig1_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    hist_plot('sig2_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    hist_plot('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
