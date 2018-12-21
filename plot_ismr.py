@@ -199,11 +199,13 @@ def azel_to_xy(df, id=None):
 
     return x,y
 
-def plot_az_el(df, id, var, cmap='jet'):
+def plot_az_el(df, var, cmap='jet'):
     '''
         Plot a variable as function of azimuth and elevation angle
+        takes a pd.DataFrame containing var, azimuth and elevation
     '''
 
+    # get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_data', log=logging)
     plotdata = df[df.SVID == id][var].values
     x, y = azel_to_xy(df, id)
 
@@ -218,7 +220,7 @@ def plot_az_el(df, id, var, cmap='jet'):
     fig.savefig('azelplot_{}_sat{}.png'.format(var, str(id).zfill(2)))
     plt.close(fig)
 
-def plot_az_el_multisat(df, var, cmap='jet'):
+def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', out='./', cmap='jet', log=None):
     '''
         Plot a variable as function of azimuth and elevation angle
         following:
@@ -227,6 +229,27 @@ def plot_az_el_multisat(df, var, cmap='jet'):
 
     '''
 
+    varlist = list([var])
+    varlist.extend(['azimuth', 'elevation', 'SVID'])
+    print(varlist)
+    dbdata = get_sqlite_data(varlist, db, svid=svid, tstart=tstart, tend=tend, table='sep_data', log=log)
+
+    tempdata = dbdata[0:5]
+    print('From database: {}'.format(dbdata[0:5]))
+    for t in tempdata:
+        print('{}'.format(t))
+    allvardata = np.array([np.float(t[0]) for t in dbdata])
+    azdata = np.array([np.float(t[1]) for t in dbdata])
+    eldata = np.array([np.float(t[2]) for t in dbdata])
+    sviddata = np.array([np.float(t[3]) for t in dbdata])
+
+    nanvar = np.isnan(allvardata)
+    vardata = allvardata[~nanvar]
+    azdata = azdata[~nanvar]
+    eldata = eldata[~nanvar]
+    sviddata = sviddata[~nanvar]
+    df = pd.DataFrame({var: vardata, 'azimuth':azdata, 'elevation':eldata, 'SVID': sviddata})
+    log.debug('Size vardata: {}'.format(vardata.shape))
 
     fig, ax = plt.subplots()
 
@@ -238,7 +261,7 @@ def plot_az_el_multisat(df, var, cmap='jet'):
     maxval = np.nanpercentile(df[var].astype('float'), 95.)
     satellites = df['SVID'].unique()
     for sat in satellites:
-        if sat < 37:
+        if 1: # sat < 37:
             iddf = df[df.SVID == sat]
             plotdata = iddf[var].astype(float).values
             x, y = azel_to_xy(iddf) # (df, id)
@@ -246,7 +269,8 @@ def plot_az_el_multisat(df, var, cmap='jet'):
             print('Scale: {} - {}, min, max here {} - {}'.format(minval, maxval, np.nanmin(plotdata), np.nanmax(plotdata)))
             azel = ax.scatter(x, y, c=plotdata, vmin=minval, vmax=maxval,
                             cmap=plt.cm.get_cmap(cmap), linewidths=0, edgecolors=None,
-                            label='sat {}'.format(sat))
+                            # label='sat {}'.format(sat)
+                            )
 
     ax.set_xlabel('$x = \cos \ \epsilon \quad \sin \ \phi$')
     ax.set_ylabel('$y = \cos \ \epsilon \quad \cos \ \phi$')
@@ -260,7 +284,7 @@ if __name__ == '__main__':
 
     ismrdb_path = './'
     ismrdb_path = '/data/storage/trop/users/plas/SW'
-    ismrdb_path = '/Users/plas/data/SW'
+    # ismrdb_path = '/Users/plas/data/SW'
     loc = 'SABA'
     # loc = 'SEUT'
     ismrdb = os.path.join(ismrdb_path,'test_scint_{}.db'.format(loc))
@@ -272,13 +296,18 @@ if __name__ == '__main__':
     logger.addHandler(ch)
 
     startdate = dt.datetime(2018,5,4,0,0,0)
-    enddate = dt.datetime(2018,5,10,0,0,0)
+    enddate = dt.datetime(2018,5,7,0,0,0)
+    # enddate = dt.datetime(2018,5,10,0,0,0)
+
+    satellites = (38, 39, 40, 41)
 
     # S4 = time_plot('sig1_S4', ismrdb, svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
     # TEC = time_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
     # hist_plot('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
     # hist_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
-    hist_plot('sig1_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    hist_plot('sig2_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    hist_plot('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot('sig1_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot('sig2_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+
+    plot_az_el_multisat('sig1_TEC', ismrdb, svid=satellites, tstart=startdate, tend=enddate, loc=loc, out='plots', cmap='hot_r', log=logger)
