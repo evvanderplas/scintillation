@@ -91,6 +91,8 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
 
     fig, ax = plt.subplots()
     ax.plot(timedata, vardata, 'b.')
+    ax.set_title('{} at {}, {}-{}'.format(var, loc,
+        tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S')))
     fig.autofmt_xdate()
 
     tag = var
@@ -276,7 +278,8 @@ def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', 
     ax.set_ylabel('$y = \cos \ \epsilon \quad \cos \ \phi$')
     ax.set_title('Tracks: {}'.format(var))
     plt.colorbar(azel, ax=ax)
-    fig.savefig('azelplot_{}_multisat.png'.format(var))
+    outfig = os.path.join(out, 'azelplot_{}_multisat.png'.format(var))
+    fig.savefig(outfig, dpi=400)
     plt.close(fig)
 
 
@@ -284,7 +287,7 @@ if __name__ == '__main__':
 
     ismrdb_path = './'
     ismrdb_path = '/data/storage/trop/users/plas/SW'
-    # ismrdb_path = '/Users/plas/data/SW'
+    ismrdb_path = '/Users/plas/data/SW'
     loc = 'SABA'
     # loc = 'SEUT'
     ismrdb = os.path.join(ismrdb_path,'test_scint_{}.db'.format(loc))
@@ -310,4 +313,6 @@ if __name__ == '__main__':
     # hist_plot('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
     # hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
 
-    plot_az_el_multisat('sig1_TEC', ismrdb, svid=satellites, tstart=startdate, tend=enddate, loc=loc, out='plots', cmap='hot_r', log=logger)
+    plot_az_el_multisat('sig1_TEC', ismrdb, svid=satellites,
+        tstart=startdate, tend=enddate, loc=loc,
+        out='plots', cmap='hot_r', log=logger)
