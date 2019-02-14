@@ -5,6 +5,7 @@
 
 import os
 import datetime as dt
+import pytz
 import sqlite3
 import numpy as np
 import pandas as pd
@@ -76,13 +77,14 @@ def write_to_sqlite(df, dbname='scint.db', loc='SABA'):
 
     return
 
-def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
+def weeksecondstoutc(gpsweek, gpsseconds, leapseconds):
     '''
         Convert GPS week to UTC time
         source: https://gist.github.com/jeremiahajohnson/eca97484db88bcf6b124
     '''
 
     gps_start = dt.datetime(1980,1,6,0,0,0)
+
     if isinstance(gpsweek, np.ndarray):
         date_array = np.zeros_like(gpsweek, dtype=dt.datetime)
         timestamp_array = np.zeros_like(gpsweek, dtype=np.float64)
@@ -93,12 +95,12 @@ def weeksecondstoutc(gpsweek,gpsseconds,leapseconds):
             # print('Time delta days = week : {},'.format(week))
             # print( 'seconds: {}'.format(gpsseconds[i]) )
             date_array[i] = gps_start + dt.timedelta(days=week*7., seconds=np.float(1.* gpsseconds[i]))
-            timestamp_array = date_array[i].timestamp()
+            timestamp_array[i] = date_array[i].timestamp()
 
         return date_array, timestamp_array
 
     else:
-        date_array = gps_start + dt.timedelta(days=gpsweek*7., seconds=np.float64(gpsseconds))
+        date_array = gps_start + dt.timedelta(days=gpsweek*7., seconds=np.float64(1.* gpsseconds))
         timestamp_array = date_array.timestamp()
 
     return date_array, timestamp_array
@@ -117,7 +119,11 @@ def read_ismr(infile):
     # for week in df.weeknumber.values:
     #     print('Got week {}'.format(week))
 
-    _, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
-    print(df.head())
+    datetimes, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
+    # print(df.head())
+    # if len(datetimes)>10:
+    #     for idx in range(50):
+    #         print('week {}, timeofweek {},  {} (so timestamp {}) vs {}'.format(df.weeknumber.values[idx], df.timeofweek.values[idx],
+    #             datetimes[idx], df.timestamp[idx], dt.datetime.fromtimestamp(df.timestamp[idx])))
 
     return df

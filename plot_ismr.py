@@ -21,6 +21,7 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
         Get data from SQLite database
     '''
 
+    log.debug('Connect to SQLite db {}'.format(db))
     conn = sqlite3.connect(db)
     c = conn.cursor()
 
@@ -73,26 +74,38 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
         log.warning('Output directory: {}'.format(e))
 
     if plotdata is None:
-        plotdata = get_sqlite_data([var, 'timestamp'], db, svid=svid, tstart=tstart, tend=tend, log=log)
+        plotdata = get_sqlite_data([var, 'SVID', 'timestamp'], db, svid=svid, tstart=tstart, tend=tend, log=log)
 
     allvardata = np.array([np.float(t[0]) for t in plotdata])
+    sviddata = np.array([np.float(t[1]) for t in plotdata])
+    svids = sorted(np.unique(sviddata))
     log.debug('Shape of allvardata {}'.format(allvardata.shape))
     # nanvar = np.array(['nan' in allvar for allvar in allvardata], dtype='bool')
     nanvar = np.isnan(allvardata)
     vardata = allvardata[~nanvar]
+    sviddata = sviddata[~nanvar]
     log.debug('Shape of vardata {}'.format(vardata.shape))
 
     # log.debug('Shape of plotdata without "nan": {}'.format(plotdata[~nanvar].shape))
-    timestampdata = np.array([np.int(t[1]) for t in plotdata])[~nanvar]
+    timestampdata = np.array([np.int(t[2]) for t in plotdata])[~nanvar]
     log.debug('Where are stupid time values: {}, {}'.format(timestampdata[timestampdata < 1.e6], np.argwhere(timestampdata < 1.e6)))
 
-    timedata = np.array([dt.datetime.fromtimestamp(t[1]) for t in plotdata])[~nanvar]
+    timedata = np.array([dt.datetime.fromtimestamp(t[2]) for t in plotdata])[~nanvar]
     # timedata = timedata[~np.isnan(vardata)]
 
+    colors = ['b','g','r','c','lime','k','orange']
     fig, ax = plt.subplots()
-    ax.plot(timedata, vardata, 'b.')
+    for idx, svid in enumerate(svids):
+        varsviddata = vardata[sviddata == svid]
+        timesviddata = timedata[sviddata == svid]
+        color = colors[idx % len(colors)]
+        # print('Vardata for SVID {}: \n{} \n{}'.format(svid, varsviddata[0:20], timesviddata[0:20]))
+        ax.plot(timesviddata, varsviddata, linestyle=':', color=color, label=('Sat {}'.format(svid)))
     ax.set_title('{} at {}, {}-{}'.format(var, loc,
-        tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S')))
+        tstart.strftime('%Y%m%d, %H:%M:%S'), tend.strftime('%Y%m%d, %H:%M:%S')))
+    ax.set_xlabel('Time')
+    ax.set_ylabel('{}'.format(var))
+    ax.legend(loc='best')
     fig.autofmt_xdate()
 
     tag = var

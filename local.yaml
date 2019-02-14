@@ -1,6 +1,6 @@
 # YAML configuration file to set the databse location and so
 {
-      # 'ismrdb_path': '/data/storage/trop/users/plas/SW'
-      'ismrdb_path': '/Users/plas/data/SW'
-
+      'ismrdb_path': '/data/storage/trop/users/plas/SW',
+      # 'ismrdb_path': '/Users/plas/data/SW'
+      'ismrdb_name': 'test_scint_new_{}.db',
 }

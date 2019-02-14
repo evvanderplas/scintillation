@@ -2,10 +2,10 @@
 {
   'plot_var': 'sig1_S4',
   'plot_type': 'time',
-  'startdate': [2018,5,4,0,0,0],
-  'enddate': [2018,5,7,0,0,0],
+  'startdate': [2018,5,10,12,0,0],
+  'enddate': [2018,5,10,15,0,0],
   'location': 'SABA',
   # 'satellites': [38, 39, 40, 41],
-  'satellites': [38, 39, 40, 41, 42, 43],
+  'satellites': [1,2,3],
   'outputdir': './plots'
 }

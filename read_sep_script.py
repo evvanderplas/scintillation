@@ -14,9 +14,11 @@ def main():
     data_location = '/data/storage/trop/users/plas/SW/IONO'
     scint_locations = ['SABA','SEUT']
 
-    instrument_location = 'SEUT'
+    instrument_location = 'SABA'
     db_location = '/data/storage/trop/users/plas/SW/'
+    # db_location = '/data/WNhome/plas/septentrio/'
     ismrdb = os.path.join(db_location, 'test_scint_new_{}.db'.format(instrument_location))
+    print('Writing to {}'.format(ismrdb))
 
     if os.path.isdir(data_location):
         for (dirname, dirs, files) in os.walk(data_location):
@@ -30,7 +32,6 @@ def main():
                     df = read_ismr.read_ismr(infile)
                     if df.shape[0] == 0: continue
                     read_ismr.write_to_sqlite(df, dbname=ismrdb, loc=instrument_location)
-
 
 if __name__ == '__main__':
     main()

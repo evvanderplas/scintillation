@@ -83,6 +83,8 @@ def plot_df(df, id, var):
 
     fig, ax = plt.subplots()
     ax.plot(xdata, plotdata)
+    ax.set_xlabel('Time')
+    ax.set_ylabel('{}'.format(var))
     # ax.plot(plotdata)
     out = 'testplot_{}_sat{}.png'.format(var,str(id).zfill(2))
     print('shape of plotdata: {}'.format(plotdata.shape))
@@ -102,6 +104,9 @@ def plot_df_multivar(df, id, varlist, name='multi'):
 
     fig, ax = plt.subplots()
     ydata.plot(x=xdata, ax=ax)
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Various (see legend)')
+    # ax.set_title('{}'.format(', '.join([var for var in varlist])))
 
     out = 'testplot_{}_sat{}.png'.format(name, str(id).zfill(2))
     fig.savefig(out)
@@ -210,7 +215,7 @@ def main():
     plot_az_el_multisat(data, 'sig1_S4', cmap='RdBu_r')
     plot_az_el_multisat(data, 'sig1_TEC', cmap='hot_r')
 
-    return
+    # return
 
     satellites = data['SVID'].unique()
     for sat in satellites:

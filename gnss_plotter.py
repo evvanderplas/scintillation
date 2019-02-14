@@ -62,7 +62,7 @@ if __name__ == '__main__':
     dbconfig = read_yaml('local.yaml')
 
     plotconfig = read_yaml(args.infile)
-    ismrdb = os.path.join(dbconfig['ismrdb_path'],'test_scint_{}.db'.format(plotconfig['location']))
+    ismrdb = os.path.join(dbconfig['ismrdb_path'],dbconfig['ismrdb_name'].format(plotconfig['location']))
     startdate = read_confdate(plotconfig['startdate'])
     enddate = read_confdate(plotconfig['enddate'])
     plot_var = plotconfig['plot_var']
