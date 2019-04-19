@@ -15,6 +15,8 @@ topo = {
     'SABA': (17.62048, -63.24323),
     'SEUT': (17.47140, -62.97570)
 }
+R_earth = 6378.100   # m
+HEIGHT = 20200 # altitude of GPS satellites in km
 
 def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_data', log=logging):
     '''
@@ -190,7 +192,28 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
 
     return plotdata
 
-def azel_to_xy(df, id=None):
+def deg_to_lon(angle):
+    '''
+        Return angle between -180 and 180 degrees
+    '''
+    return (angle + 180.) % 360 - 180
+
+def azel_to_latlon(df, point=topo['SABA'], id=None, height=300):
+    '''
+        Compute latitude longitude from azimuth and elevation angle
+
+        First distance north and east is computed using height, then from a
+        distance from a certain latlon-point lat and lon.
+    '''
+    relx, rely = azel_to_xy(df, id=id, h=height)
+    lat_angle = point[0] + np.arctan2(rely, R_earth)
+    lon_angle = point[1] + np.arctan2(relx, R_earth)
+    df['lat'] = lat_angle
+    df['lon'] = lon_angle
+
+    return deg_to_lon(lon_angle), lat_angle, df
+
+def azel_to_xy(df, id=None, h=HEIGHT):
     '''
         Compute x,y from azimuth and elevation in dataframe
         following:
@@ -198,9 +221,6 @@ def azel_to_xy(df, id=None):
         y = sin e * sin phi
 
     '''
-
-    HEIGHT = 20200 # altitude of GPS satellites in km
-
     if id is not None:
         iddf = df[df.SVID == id]
     else:
@@ -275,17 +295,20 @@ def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', 
     minval = np.nanpercentile(df[var].astype('float'), 10.)
     maxval = np.nanpercentile(df[var].astype('float'), 95.)
     satellites = df['SVID'].unique()
+    # print('Looping over satellites {}\n{}'.format(satellites, df['SVID']))
     for sat in satellites:
         if 1: # sat < 37:
             iddf = df[df.SVID == sat]
             plotdata = iddf[var].astype(float).values
-            x, y = azel_to_xy(iddf) # (df, id)
+            # x, y = azel_to_xy(iddf) # (df, id)
+            x, y, _ = azel_to_latlon(iddf) # (df, id)
             # print('For sat {} we have {} - {} - {}'.format(sat, len(x), len(y), len(plotdata)))
-            print('Scale: {} - {}, min, max here {} - {}'.format(minval, maxval, np.nanmin(plotdata), np.nanmax(plotdata)))
+            # print('Scale: {} - {}, min, max here {} - {}'.format(minval, maxval, np.nanmin(plotdata), np.nanmax(plotdata)))
             azel = ax.scatter(x, y, c=plotdata, vmin=minval, vmax=maxval,
                             cmap=plt.cm.get_cmap(cmap), linewidths=0, edgecolors=None,
                             # label='sat {}'.format(sat)
                             )
+            print('Plotted sat {}'.format(sat))
 
     ax.set_xlabel('$x = \cos \ \epsilon \quad \sin \ \phi$')
     ax.set_ylabel('$y = \cos \ \epsilon \quad \cos \ \phi$')
@@ -294,7 +317,7 @@ def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', 
     outfig = os.path.join(out, 'azelplot_{}_multisat.png'.format(var))
     fig.savefig(outfig, dpi=400)
     plt.close(fig)
-
+    print('Plotted {}'.format(outfig))
 
 if __name__ == '__main__':
 

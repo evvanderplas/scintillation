@@ -11,6 +11,7 @@ import datetime as dt
 import logging
 
 import plot_ismr
+import plot_ismr_map
 
 def init_logger():
     '''
@@ -59,8 +60,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     logger.debug(args.infile)
 
+    # read where the database is
     dbconfig = read_yaml('local.yaml')
 
+    # read what plot(s) to make
     plotconfig = read_yaml(args.infile)
     ismrdb = os.path.join(dbconfig['ismrdb_path'],dbconfig['ismrdb_name'].format(plotconfig['location']))
     startdate = read_confdate(plotconfig['startdate'])
@@ -71,6 +74,10 @@ if __name__ == '__main__':
 
     if plotconfig['plot_type'] == 'az_el':
         plot_ismr.plot_az_el_multisat(plot_var, ismrdb, svid=plotconfig['satellites'],
+            tstart=startdate, tend=enddate,
+            loc=plotconfig['location'], out=plotconfig['outputdir'],
+            cmap='hot_r', log=logger)
+        plot_ismr_map.prepare_map_data(plot_var, ismrdb, svid=plotconfig['satellites'],
             tstart=startdate, tend=enddate,
             loc=plotconfig['location'], out=plotconfig['outputdir'],
             cmap='hot_r', log=logger)
