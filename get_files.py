@@ -8,7 +8,7 @@ import ftplib
 
 FTPHOST = 'ftppro-236.knmi.nl'
 FTPUSER = 'spaceweather'
-FTPWW   = 'sp33sW'
+FTPWW = 'sp33sW'
 
 TROPDATAPATH = '/data/storage/trop/users/plas/SW'
 SITES = ('SABA', 'SEUT')
@@ -22,18 +22,18 @@ def last_downloaded_file(archpath=TROPDATAPATH):
     for site in SITES:
         datapath = os.path.join(archpath, 'IONO', site)
         dirs = sorted([os.path.split(yyw[0])[-1] for yyw in os.walk(datapath)
-                        if os.path.split(yyw[0])[-1].isdigit()])
+                       if os.path.split(yyw[0])[-1].isdigit()])
         print('{}: {}'.format(site, dirs))
         last_dir[site] = dirs[-1]
 
     return last_dir
 
-def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH):
+def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH, verb=False):
     '''
         Get a directory via FTP
     '''
 
-    ftph = ftplib.FTP(host=FTPHOST,user=FTPUSER,passwd=FTPWW)
+    ftph = ftplib.FTP(host=FTPHOST, user=FTPUSER, passwd=FTPWW)
     ftph.cwd('../IONO')
     for site in SITES:
         if 1: #try:
@@ -42,21 +42,36 @@ def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH):
             print(avail_dirs)
 
             # for now
-            lastdir = avail_dirs[-1]
-            ftph.cwd(lastdir)
-            localdir = os.path.join(archpath, 'IONO', site, lastdir)
-            os.makedirs(localdir)
-            print('Made {}'.format(localdir))
-            ftplisting = ftph.nlst()
-            for item in ftplisting:
-                print('{}: {}'.format(item, os.path.splitext(item)))
-            ismrfiles = sorted([item for item in ftph.nlst() if os.path.splitext(item)[-1] == '.ismr'])
-            for ismrf in ismrfiles:
-                localf = open(os.path.join(localdir, ismrf), 'wb')
-                print('getting {}'.format(ismrf))
-                ftph.retrbinary('RETR {}'.format(ismrf), localf.write)
-                localf.close()
-            ftph.cwd('..')
+            for dailydir in avail_dirs:
+                # lastdir = avail_dirs[-1]
+                ftph.cwd(dailydir)
+                localdir = os.path.join(archpath, 'IONO', site, dailydir)
+                if os.path.isdir(localdir):
+                    if verb:
+                        print('>>>>> Already a directory! {}'.format(localdir))
+                try:
+                    os.makedirs(localdir)
+                except FileExistsError as ferr:
+                    print('No need to create {} ({})'.format(localdir, ferr))
+                print('Made {}'.format(localdir))
+                # ftplisting = ftph.nlst()
+                # for item in ftplisting:
+                #     print('{}: {}'.format(item, os.path.splitext(item)))
+                ismrfiles = sorted([item for item in ftph.nlst()
+                                    if os.path.splitext(item)[-1] == '.ismr'])
+                for ismrf in ismrfiles:
+                    if verb:
+                        print('getting {}'.format(ismrf))
+                    localfile = os.path.join(localdir, ismrf)
+                    if os.path.isfile(localfile):
+                        if verb:
+                            print('>>>>> Already a file: {}! Continuing...'.format(localfile))
+
+                    else:
+                        localf = open(localfile, 'wb')
+                        ftph.retrbinary('RETR {}'.format(ismrf), localf.write)
+                        localf.close()
+                ftph.cwd('..')
 
         else: # except: # ftperr
             print('Problem')

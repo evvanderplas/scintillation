@@ -67,6 +67,8 @@ def plot_data_on_map(var, df, midpoint, outdir='./', cmap='jet'):
     ax.coastlines(resolution='50m', color='black', linewidth=1)
     gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
               linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+    gl.xlabels_top = False
+    gl.ylabels_right = False
 
     minval = np.nanpercentile(df[var].astype('float'), 10.)
     maxval = np.nanpercentile(df[var].astype('float'), 95.)

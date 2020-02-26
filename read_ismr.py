@@ -11,8 +11,9 @@ import numpy as np
 import pandas as pd
 import calendar
 
-
-NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue', 'azimuth', 'elevation',
+HEADER_NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue']
+#NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue',
+NAMES = ['azimuth', 'elevation',
          'sig1_CNO_avg_min', 'sig1_S4', 'sig1_S4_corr', 'sig1_phi01', 'sig1_phi03', 'sig1_phi10', 'sig1_phi30', 'sig1_phi60',
          'sig1_avgccd', 'sig1_sigmaccd',
          'sig1_TEC_m45', 'sig1_dTEC_m60_m45',
@@ -21,7 +22,7 @@ NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue', 'azimuth', 'elev
          'sig1_TEC', 'sig1_dTEC_m15_0',
          'sig1_locktime',
          'sbf2ismr_version',
-         'sig2_locktime', 'sig2_avg',
+         'sig1_f2_locktime', 'sig1_f2_avg',
          'sig1_SI', 'sig1_SI_nom', 'p_sig1',
          'sig2_CNO_avg_min', 'sig2_S4', 'sig2_S4_corr', 'sig2_phi01', 'sig2_phi03', 'sig2_phi10', 'sig2_phi30', 'sig2_phi60',
          'sig2_avgccd', 'sig2_sigmaccd',
@@ -49,31 +50,45 @@ def init_db(cursor, tabname='sep_data'):
         Create table for all the SEPTENTRIO data
     '''
 
-    namelist = ','.join('{} REAL'.format(name) for name in NAMES)
-    namelist += ', time INTEGER'
+    # namelist = 'index INTEGER, '
+    namelist = ', '.join('{} INTEGER'.format(name) for name in HEADER_NAMES)
+    namelist += ', ' + ', '.join('{} REAL'.format(name) for name in NAMES)
+    namelist += ', timestamp INTEGER'
     create_table_sql = '''CREATE TABLE IF NOT EXISTS {} (
         {}
     )
     '''.format(tabname, namelist)
+    create_index = 'CREATE INDEX IF NOT EXISTS "idx_timestamp" ON {} ("timestamp")'.format("{}".format(tabname))
 
     try:
+        # print('Create table using: {}'.format(create_table_sql))
         cursor.execute(create_table_sql)
+        cursor.execute(create_index)
     except Exception as e:
         print(e)
 
-    return
+    return cursor
 
-def write_to_sqlite(df, dbname='scint.db', loc='SABA'):
+def write_to_sqlite(df, dbname='scint.db', tabname='sep_data_{}', loc='SABA'):
     '''
         Write the data (in dataframe) from a ISMR file to an SQLite database
     '''
-    conn = sqlite3.connect(dbname)
+
+    # isolation_level = None should enable autocommit
+    conn = sqlite3.connect(dbname) #, isolation_level=None)
     c = conn.cursor()
 
-    init_db(c, tabname='sep_data')
-    # df['timestamp'] = dt2ts(df.t)
-    # df.drop('t')
-    df.to_sql('sep_data', conn, if_exists='append')
+    init_db(c, tabname=tabname.format(loc))
+
+    # #############
+    # df_test = df[['weeknumber', 'timeofweek', 'SVID']]
+    # print(df_test.head())
+    # print(df_test.columns)
+    # df_test.to_sql('test', conn, if_exists='append', index=False)
+    # #################
+
+    df.to_sql('sep_data_{}'.format(loc), conn, if_exists='append', index=False)
+    # df.to_sql('other_data_{}'.format(loc), conn, if_exists='append')
 
     return
 
@@ -113,11 +128,10 @@ def read_ismr(infile):
     '''
 
     print('Parsing {}'.format(infile))
-    with open(infile, 'r') as ismr:
-        df = pd.read_csv(ismr, header=None, names=NAMES, na_values='nan')
 
-    # for week in df.weeknumber.values:
-    #     print('Got week {}'.format(week))
+    df_names = HEADER_NAMES + NAMES
+    with open(infile, 'r') as ismr:
+        df = pd.read_csv(ismr, header=None, names=df_names, na_values='nan')
 
     datetimes, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
     # print(df.head())

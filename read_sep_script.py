@@ -3,8 +3,11 @@
   Script that reads csv files and puts data in database
 '''
 
-import read_ismr
 import os
+import time
+
+# use read functionality:
+import read_ismr
 
 def main():
     '''
@@ -13,15 +16,25 @@ def main():
     # data_location = '/Users/plas/Downloads/IONO'
     data_location = '/data/storage/trop/users/plas/SW/IONO'
     scint_locations = ['SABA','SEUT']
-
-    instrument_location = 'SABA'
     db_location = '/data/storage/trop/users/plas/SW/'
     # db_location = '/data/WNhome/plas/septentrio/'
-    ismrdb = os.path.join(db_location, 'test_scint_new_{}.db'.format(instrument_location))
+
+    for location in scint_locations:
+        print('One day: loop over location: {}'.format(location))
+
+    # instrument_location = 'SABA'
+    instrument_location = 'SEUT'
+    data_dir = os.path.join(data_location, instrument_location)
+    print('Walking directory tree {}'.format(data_dir))
+    ismrdb = os.path.join(db_location, 'scint_new_{}.db'.format(instrument_location))
     print('Writing to {}'.format(ismrdb))
 
-    if os.path.isdir(data_location):
-        for (dirname, dirs, files) in os.walk(data_location):
+    # start the time
+    t_start = time.time()
+
+    if os.path.isdir(data_dir):
+        # walk through all the .ismr files you can find in this directory:
+        for (dirname, dirs, files) in os.walk(data_dir):
             print('Walkdir: dirname: {} dirs: {}, files {}'.format(dirname, dirs, files))
             for file in files:
                 print('Reading dirname {} with file {}'.format(dirname, os.path.splitext(file)))
@@ -29,9 +42,14 @@ def main():
                     continue
                 infile = os.path.join(dirname, file)
                 if instrument_location in dirname:
-                    df = read_ismr.read_ismr(infile)
-                    if df.shape[0] == 0: continue
-                    read_ismr.write_to_sqlite(df, dbname=ismrdb, loc=instrument_location)
+                    ismr_dataframe = read_ismr.read_ismr(infile)
+                    if ismr_dataframe.shape[0] == 0:
+                        continue
+                    read_ismr.write_to_sqlite(ismr_dataframe, dbname=ismrdb,
+                                              loc=instrument_location)
+
+            # keep track of time
+            print('Elapsed: {} s'.format(time.time() - t_start))
 
 if __name__ == '__main__':
     main()

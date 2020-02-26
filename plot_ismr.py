@@ -1,15 +1,18 @@
 #! /usr/bin/env python
 
-import read_ismr
 import os
 import sqlite3
+import time
+import logging
 import datetime as dt
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-import time
-import logging
+
+# import read_ismr
+
 
 topo = {
     'SABA': (17.62048, -63.24323),
@@ -116,7 +119,7 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
     if svid is not None:
         if isinstance(svid, int):
             tag += '_{}'.format(str(svid).zfill(2))
-        elif isinstance(svid, (tuple,list)):
+        elif isinstance(svid, (tuple, list)):
             tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
     if tstart is not None and isinstance(tstart, dt.datetime):
         tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
@@ -127,7 +130,8 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
 
     return plotdata
 
-def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./', loc='SABA', log=logging):
+def hist_plot_manual(var, db, svid=None, tstart=None, tend=None, plotdata=None,
+              out='./', loc='SABA', log=logging):
     '''
         Make a histogram plot of a variable var in the ismr database db
     '''
@@ -138,7 +142,8 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
         log.warning('Output directory: {}'.format(e))
 
     if plotdata is None:
-        plotdata = get_sqlite_data([var, 'timestamp'], db, svid=svid, tstart=tstart, tend=tend, log=log)
+        plotdata = get_sqlite_data([var, 'timestamp'], db, svid=svid,
+                                   tstart=tstart, tend=tend, log=log)
 
     allvardata = np.array([np.float(t[0]) for t in plotdata])
     # nanvar = np.array(['nan' in allvar for allvar in allvardata], dtype='bool')
@@ -154,7 +159,7 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
     if svid is not None:
         if isinstance(svid, int):
             tag += '_{}'.format(str(svid).zfill(2))
-        elif isinstance(svid, (tuple,list)):
+        elif isinstance(svid, (tuple, list)):
             tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
     if tstart is not None and isinstance(tstart, dt.datetime):
         tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
@@ -191,6 +196,120 @@ def hist_plot(var, db, svid=None, tstart=None, tend=None, plotdata=None, out='./
     fig.savefig(figname)
 
     return plotdata
+
+def hist_plot(config, log=logging):
+    '''
+        Make a histogram plot of a variable var in the ismr database db
+    '''
+
+    try:
+        os.makedirs(config['outputdir'])
+    except OSError as e:
+        log.warning('Output directory: {}'.format(e))
+
+    var = config['plot_var']
+    tstart = config['startdt'] # the interpreted starttime in datetime format
+    tend = config['enddt'] # the interpreted endtime in datetime format
+    loc = config['location']
+    scint_db = os.path.join(config['ismrdb_path'], config['ismrdb_name'].format(loc))
+    tabname = config['tabname'].format(loc)
+    if 'satellites' in config:
+        svid = config['satellites']
+    else:
+        svid = None
+
+    if ('plotdata' not in config) or config['plotdata'] is None:
+        query_start = time.time()
+        plotdata = get_sqlite_data([var, 'timestamp'], scint_db, table=tabname,
+                                   svid=svid,
+                                   tstart=tstart, tend=tend, log=log)
+        query_end = time.time()
+        print('Query took {:.3f} seconds'.format(query_end - query_start))
+
+    else:
+        plotdata = config['plotdata']
+
+    allvardata = np.array([np.float(t[0]) for t in plotdata])
+    # nanvar = np.array(['nan' in allvar for allvar in allvardata], dtype='bool')
+    nanvar = np.isnan(allvardata)
+    vardata = allvardata[~nanvar]
+    log.debug('Size vardata: {}'.format(vardata.shape))
+    timestampdata = np.array([t[1] for t in plotdata])[~nanvar]
+    timedata = np.array([dt.datetime.fromtimestamp(t[1]) for t in plotdata])[~nanvar]
+
+    tag = var
+    if loc is not None:
+        tag += '_{}'.format(loc)
+    if svid is not None:
+        if isinstance(svid, int):
+            tag += '_{}'.format(str(svid).zfill(2))
+        elif isinstance(svid, (tuple, list)):
+            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
+    if tstart is not None and isinstance(tstart, dt.datetime):
+        tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
+
+    # 1D histogram
+    fig, ax = plt.subplots()
+    _nrbins, _bins, _patches = ax.hist(vardata, bins=50, normed=1, facecolor='green', alpha=0.75)
+    ax.set_xlabel('{} (binned)'.format(var))
+    ax.set_title('Histogram of {} at {}'.format(var, loc))
+
+    figname = os.path.join(config['outputdir'], 'sql_hist_{}_{}.png'.format(tag, loc))
+    log.debug('Saving {}'.format(figname))
+    fig.savefig(figname)
+
+    # 2D histogram
+    fig, ax = plt.subplots()
+
+    # the bins are configurable: if given [a, b] is amount of bins in x, y direction
+    # or if a or b is array-like they represent the bins (edges) themselves
+    if 'histbins' in config:
+        histbins_conf = config['histbins']
+        # check if it has a separate entry for bins in the x and y direction
+        if len(histbins_conf) > 1:
+            histbins_x, histbins_y = histbins_conf
+            # check if it is a number or an attempt to define an array:
+            for idx, histb in enumerate(histbins_conf): #(histbins_x, histbins_y):
+                print('Looking at histbins: {}'.format(histb))
+                if idx > 1: break # do not consider strangely formatted bins
+                if not isinstance(histb, (list, tuple, np.ndarray)):
+                    pass
+                else:
+                    if len(histb) == 2:
+                        histbins_conf[idx] = np.arange(histb[0], histb[1])
+                    elif len(histb) == 3:
+                        histbins_conf[idx] = np.linspace(histb[0], histb[1], histb[2])
+                    print('Now histbin is {}'.format(histb))
+            histbins = histbins_conf # [histbins_x, histbins_y]
+            print('Were the histbins changed? {}'.format(histbins))
+        else:
+            histbins = [histbins_conf, histbins_conf]
+    else:
+        histbins = [150, 50]
+
+    ax.hist2d(timestampdata, vardata, bins=histbins, norm=LogNorm())
+    ax.set_ylabel('{} (binned)'.format(var))
+    if 'yrange' in config:
+        ymin, ymax = config['yrange']
+        ax.set_ylim(ymin, ymax)
+
+    xlocs = ax.get_xticks()
+    ax.set_xticks(xlocs) # unnecessary?
+    dtlabels = [dt.datetime.fromtimestamp(tlab) for tlab in xlocs]
+    ax.set_xticklabels([dtlab.strftime('%Y-%m-%d') for dtlab in dtlabels])
+    ax.set_xlabel('Time (binned)')
+
+    # ax.hist2d(timedata, vardata, bins=[150, 50], norm=LogNorm())
+
+    fig.autofmt_xdate()
+    ax.set_title('Histogram as a function of time of {} at {}'.format(var, loc))
+
+    figname = os.path.join(config['outputdir'], 'sql_hist2d_{}_{}.png'.format(tag, loc))
+    log.debug('Saving {}'.format(figname))
+    fig.savefig(figname)
+
+    return plotdata
+
 
 def deg_to_lon(angle):
     '''
@@ -267,7 +386,8 @@ def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', 
     varlist = list([var])
     varlist.extend(['azimuth', 'elevation', 'SVID'])
     print(varlist)
-    dbdata = get_sqlite_data(varlist, db, svid=svid, tstart=tstart, tend=tend, table='sep_data', log=log)
+    dbdata = get_sqlite_data(varlist, db, svid=svid, tstart=tstart, tend=tend,
+                             table='sep_data', log=log)
 
     tempdata = dbdata[0:5]
     print('From database: {}'.format(dbdata[0:5]))
@@ -310,8 +430,8 @@ def plot_az_el_multisat(var, db, svid=None, tstart=None, tend=None, loc='SABA', 
                             )
             print('Plotted sat {}'.format(sat))
 
-    ax.set_xlabel('$x = \cos \ \epsilon \quad \sin \ \phi$')
-    ax.set_ylabel('$y = \cos \ \epsilon \quad \cos \ \phi$')
+    ax.set_xlabel(u'$x = \cos \ \epsilon \quad \sin \ \phi$')
+    ax.set_ylabel(u'$y = \cos \ \epsilon \quad \cos \ \phi$')
     ax.set_title('Tracks: {}'.format(var))
     plt.colorbar(azel, ax=ax)
     outfig = os.path.join(out, 'azelplot_{}_multisat.png'.format(var))
@@ -323,7 +443,7 @@ if __name__ == '__main__':
 
     ismrdb_path = './'
     ismrdb_path = '/data/storage/trop/users/plas/SW'
-    ismrdb_path = '/Users/plas/data/SW'
+    # ismrdb_path = '/Users/plas/data/SW'
     loc = 'SABA'
     # loc = 'SEUT'
     ismrdb = os.path.join(ismrdb_path,'test_scint_{}.db'.format(loc))
@@ -350,5 +470,5 @@ if __name__ == '__main__':
     # hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
 
     plot_az_el_multisat('sig1_TEC', ismrdb, svid=satellites,
-        tstart=startdate, tend=enddate, loc=loc,
-        out='plots', cmap='hot_r', log=logger)
+                        tstart=startdate, tend=enddate, loc=loc,
+                        out='plots', cmap='hot_r', log=logger)
