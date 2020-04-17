@@ -14,43 +14,44 @@ import yaml
 
 import plot_ismr
 import plot_ismr_map
+from lib.tools import init_logger, read_yaml. read_confdate
 
-def init_logger():
-    '''
-        Initialize a logger
-    '''
-    logger = logging.getLogger('plotting')
-    logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    logger.addHandler(ch)
+# def init_logger():
+#     '''
+#         Initialize a logger
+#     '''
+#     logger = logging.getLogger('plotting')
+#     logger.setLevel(logging.DEBUG)
+#     ch = logging.StreamHandler()
+#     ch.setLevel(logging.DEBUG)
+#     logger.addHandler(ch)
+#
+#     return logger
 
-    return logger
+# def read_yaml(yamlfile):
+#     '''
+#         Read a YAML file into a dictionary
+#     '''
+#
+#     with open(yamlfile, 'r') as stream:
+#         try:
+#             config = yaml.load(stream)
+#         except yaml.YAMLError as exc:
+#             print(exc)
+#
+#     return config
 
-def read_yaml(yamlfile):
-    '''
-        Read a YAML file into a dictionary
-    '''
-
-    with open(yamlfile, 'r') as stream:
-        try:
-            config = yaml.load(stream)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    return config
-
-def read_confdate(dlist):
-    '''
-        Read the list of [Y, m, d, H, M, S] and turn it into a datetime
-    '''
-
-    if len(dlist) >= 6:
-        readdate = dt.datetime(dlist[0], dlist[1], dlist[2], dlist[3], dlist[4], dlist[5])
-    elif len(dlist) == 3:
-        readdate = dt.datetime(dlist[0], dlist[1], dlist[2], 0, 0, 0)
-
-    return readdate
+# def read_confdate(dlist):
+#     '''
+#         Read the list of [Y, m, d, H, M, S] and turn it into a datetime
+#     '''
+#
+#     if len(dlist) >= 6:
+#         readdate = dt.datetime(dlist[0], dlist[1], dlist[2], dlist[3], dlist[4], dlist[5])
+#     elif len(dlist) == 3:
+#         readdate = dt.datetime(dlist[0], dlist[1], dlist[2], 0, 0, 0)
+#
+#     return readdate
 
 if __name__ == '__main__':
 
@@ -103,6 +104,8 @@ if __name__ == '__main__':
         #                     tstart=startdate, tend=enddate,
         #                     loc=plotconfig['location'], out=plotconfig['outputdir'], log=logger)
         plot_ismr.hist_plot(plotconfig, log=logger)
+    elif plotconfig['plot_type'] == 'hist2d_hour':
+        plot_ismr.hist_plot_hourly(plotconfig, log=logger)
 
     tend = time.time()
     print('Time elapsed = {} s'.format(tend-tstart))

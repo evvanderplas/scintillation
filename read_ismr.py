@@ -35,6 +35,11 @@ NAMES = ['azimuth', 'elevation',
          'sig1_T', 'sig2_T', 'sig3_T'
          ]
 
+REDUCED_NAMES = ['azimuth', 'elevation', 'sig1_TEC', 
+                 'sig1_S4', 'sig1_S4_corr',
+                 'sig2_S4', 'sig2_S4_corr',
+                 'sig3_S4', 'sig3_S4_corr',]
+
 def dt2ts(dttime):
     """
         Converts a datetime object to UTC timestamp

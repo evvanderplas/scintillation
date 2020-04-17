@@ -5,6 +5,7 @@
 '''
 import os
 import ftplib
+from lib.tools import init_logger
 
 FTPHOST = 'ftppro-236.knmi.nl'
 FTPUSER = 'spaceweather'

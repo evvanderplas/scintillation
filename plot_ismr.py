@@ -75,11 +75,12 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
 
     try:
         os.makedirs(out)
-    except OSError as e:
-        log.warning('Output directory: {}'.format(e))
+    except OSError as errdir:
+        log.warning('Output directory: {}'.format(errdir))
 
     if plotdata is None:
-        plotdata = get_sqlite_data([var, 'SVID', 'timestamp'], db, svid=svid, tstart=tstart, tend=tend, log=log)
+        plotdata = get_sqlite_data([var, 'SVID', 'timestamp'], db,
+                                   svid=svid, tstart=tstart, tend=tend, log=log)
 
     allvardata = np.array([np.float(t[0]) for t in plotdata])
     sviddata = np.array([np.float(t[1]) for t in plotdata])
@@ -93,21 +94,24 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
 
     # log.debug('Shape of plotdata without "nan": {}'.format(plotdata[~nanvar].shape))
     timestampdata = np.array([np.int(t[2]) for t in plotdata])[~nanvar]
-    log.debug('Where are stupid time values: {}, {}'.format(timestampdata[timestampdata < 1.e6], np.argwhere(timestampdata < 1.e6)))
+    log.debug('Where are stupid time values: {}, {}'\
+            .format(timestampdata[timestampdata < 1.e6], np.argwhere(timestampdata < 1.e6)))
 
     timedata = np.array([dt.datetime.fromtimestamp(t[2]) for t in plotdata])[~nanvar]
     # timedata = timedata[~np.isnan(vardata)]
 
-    colors = ['b','g','r','c','lime','k','orange']
+    colors = ['b', 'g', 'r', 'c', 'lime', 'k', 'orange']
     fig, ax = plt.subplots()
-    for idx, svid in enumerate(svids):
-        varsviddata = vardata[sviddata == svid]
-        timesviddata = timedata[sviddata == svid]
+    for idx, sat_id in enumerate(svids):
+        varsviddata = vardata[sviddata == sat_id]
+        timesviddata = timedata[sviddata == sat_id]
         color = colors[idx % len(colors)]
         # print('Vardata for SVID {}: \n{} \n{}'.format(svid, varsviddata[0:20], timesviddata[0:20]))
-        ax.plot(timesviddata, varsviddata, linestyle=':', color=color, label=('Sat {}'.format(svid)))
+        ax.plot(timesviddata, varsviddata, linestyle=':', color=color,
+                label=('Sat {}'.format(sat_id)))
     ax.set_title('{} at {}, {}-{}'.format(var, loc,
-        tstart.strftime('%Y%m%d, %H:%M:%S'), tend.strftime('%Y%m%d, %H:%M:%S')))
+                                          tstart.strftime('%Y%m%d, %H:%M:%S'),
+                                          tend.strftime('%Y%m%d, %H:%M:%S')))
     ax.set_xlabel('Time')
     ax.set_ylabel('{}'.format(var))
     ax.legend(loc='best')
@@ -120,7 +124,7 @@ def time_plot(var, db, loc=None, svid=None, tstart=None, tend=None, plotdata=Non
         if isinstance(svid, int):
             tag += '_{}'.format(str(svid).zfill(2))
         elif isinstance(svid, (tuple, list)):
-            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
+            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3), str(max(svid)).zfill(3))
     if tstart is not None and isinstance(tstart, dt.datetime):
         tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
 
@@ -197,6 +201,39 @@ def hist_plot_manual(var, db, svid=None, tstart=None, tend=None, plotdata=None,
 
     return plotdata
 
+def interpret_histogram_bins(config):
+    '''
+        See if in the configuration file the bins for the histogram have been
+        specified, and if yes, how
+    '''
+    # the bins are configurable: if given [a, b] is amount of bins in x, y direction
+    # or if a or b is array-like they represent the bins (edges) themselves
+    if 'histbins' in config:
+        histbins_conf = config['histbins']
+        # check if it has a separate entry for bins in the x and y direction
+        if len(histbins_conf) > 1:
+            histbins_x, histbins_y = histbins_conf
+            # check if it is a number or an attempt to define an array:
+            for idx, histb in enumerate(histbins_conf): #(histbins_x, histbins_y):
+                # print('Looking at histbins: {}'.format(histb))
+                if idx > 1:
+                    break # do not consider strangely formatted bins
+                if not isinstance(histb, (list, tuple, np.ndarray)):
+                    pass
+                else:
+                    if len(histb) == 2:
+                        histbins_conf[idx] = np.arange(histb[0], histb[1])
+                    elif len(histb) == 3:
+                        histbins_conf[idx] = np.linspace(histb[0], histb[1], histb[2])
+            histbins = histbins_conf
+            # print('Were the histbins changed? {}'.format(histbins))
+        else:
+            histbins = [histbins_conf, histbins_conf]
+    else:
+        histbins = [150, 50]
+
+    return histbins
+
 def hist_plot(config, log=logging):
     '''
         Make a histogram plot of a variable var in the ismr database db
@@ -261,37 +298,17 @@ def hist_plot(config, log=logging):
     # 2D histogram
     fig, ax = plt.subplots()
 
-    # the bins are configurable: if given [a, b] is amount of bins in x, y direction
-    # or if a or b is array-like they represent the bins (edges) themselves
-    if 'histbins' in config:
-        histbins_conf = config['histbins']
-        # check if it has a separate entry for bins in the x and y direction
-        if len(histbins_conf) > 1:
-            histbins_x, histbins_y = histbins_conf
-            # check if it is a number or an attempt to define an array:
-            for idx, histb in enumerate(histbins_conf): #(histbins_x, histbins_y):
-                print('Looking at histbins: {}'.format(histb))
-                if idx > 1: break # do not consider strangely formatted bins
-                if not isinstance(histb, (list, tuple, np.ndarray)):
-                    pass
-                else:
-                    if len(histb) == 2:
-                        histbins_conf[idx] = np.arange(histb[0], histb[1])
-                    elif len(histb) == 3:
-                        histbins_conf[idx] = np.linspace(histb[0], histb[1], histb[2])
-                    print('Now histbin is {}'.format(histb))
-            histbins = histbins_conf # [histbins_x, histbins_y]
-            print('Were the histbins changed? {}'.format(histbins))
-        else:
-            histbins = [histbins_conf, histbins_conf]
-    else:
-        histbins = [150, 50]
+    # make sure the information passed on about the hostograms is properly implemented
+    histbins = interpret_histogram_bins(config)
 
     ax.hist2d(timestampdata, vardata, bins=histbins, norm=LogNorm())
     ax.set_ylabel('{} (binned)'.format(var))
     if 'yrange' in config:
         ymin, ymax = config['yrange']
         ax.set_ylim(ymin, ymax)
+
+    # draw a red line where the zero should be:
+    ax.axhline(y=0, color='red', linestyle='-', alpha=0.4)
 
     xlocs = ax.get_xticks()
     ax.set_xticks(xlocs) # unnecessary?
@@ -310,6 +327,79 @@ def hist_plot(config, log=logging):
 
     return plotdata
 
+def hist_plot_hourly(config, log):
+    '''
+        make a histogram using the hour (minute?) of the day as bins
+    '''
+
+    ####
+    try:
+        os.makedirs(config['outputdir'])
+    except OSError as e:
+        log.warning('Output directory: {}'.format(e))
+
+    var = config['plot_var']
+    tstart = config['startdt'] # the interpreted starttime in datetime format
+    tend = config['enddt'] # the interpreted endtime in datetime format
+    loc = config['location']
+    scint_db = os.path.join(config['ismrdb_path'], config['ismrdb_name'].format(loc))
+    tabname = config['tabname'].format(loc)
+    if 'satellites' in config:
+        svid = config['satellites']
+    else:
+        svid = None
+
+    if ('plotdata' not in config) or config['plotdata'] is None:
+        query_start = time.time()
+        plotdata = get_sqlite_data([var, 'timestamp'], scint_db, table=tabname,
+                                   svid=svid,
+                                   tstart=tstart, tend=tend, log=log)
+        query_end = time.time()
+        print('Query took {:.3f} seconds'.format(query_end - query_start))
+
+    else:
+        plotdata = config['plotdata']
+
+    allvardata = np.array([np.float(t[0]) for t in plotdata])
+    # nanvar = np.array(['nan' in allvar for allvar in allvardata], dtype='bool')
+    nanvar = np.isnan(allvardata)
+    vardata = allvardata[~nanvar]
+    log.debug('Size vardata: {}'.format(vardata.shape))
+    timestampdata = np.array([t[1] for t in plotdata])[~nanvar]
+    timedata = np.array([dt.datetime.fromtimestamp(t[1]) for t in plotdata])[~nanvar]
+
+    tag = var
+    if loc is not None:
+        tag += '_{}'.format(loc)
+    if svid is not None:
+        if isinstance(svid, int):
+            tag += '_{}'.format(str(svid).zfill(2))
+        elif isinstance(svid, (tuple, list)):
+            tag += '_ID{}-{}'.format(str(min(svid)).zfill(3),str(max(svid)).zfill(3))
+    if tstart is not None and isinstance(tstart, dt.datetime):
+        tag += '_{}-{}'.format(tstart.strftime('%Y%m%d%H%M%S'), tend.strftime('%Y%m%d%H%M%S'))
+
+    ####
+
+    houroftheday = np.array([t.hour for t in timedata])
+    #####
+    histbins = interpret_histogram_bins(config)
+
+    fig, ax = plt.subplots()
+    _histdist, _xedges, _yedges, _img = ax.hist2d(houroftheday, vardata, bins=histbins, norm=LogNorm())
+    ax.set_ylabel('{} (binned)'.format(var))
+    if 'yrange' in config:
+        ymin, ymax = config['yrange']
+        ax.set_ylim(ymin, ymax)
+    ax.set_xlabel('Hour of the day (binned)')
+    ax.set_title('Histogram as a function of hour of day of {} at {}'.format(var, loc))
+
+    figname = os.path.join(config['outputdir'], 'sql_hist2d_hourly_{}_{}.png'.format(tag, loc))
+    log.debug('Saving {}'.format(figname))
+    fig.savefig(figname)
+
+    return plotdata
+    #####
 
 def deg_to_lon(angle):
     '''
@@ -317,20 +407,20 @@ def deg_to_lon(angle):
     '''
     return (angle + 180.) % 360 - 180
 
-def azel_to_latlon(df, point=topo['SABA'], id=None, height=300):
+def azel_to_latlon(result_df, point=topo['SABA'], id=None, height=300):
     '''
         Compute latitude longitude from azimuth and elevation angle
 
         First distance north and east is computed using height, then from a
         distance from a certain latlon-point lat and lon.
     '''
-    relx, rely = azel_to_xy(df, id=id, h=height)
+    relx, rely = azel_to_xy(result_df, id=id, h=height)
     lat_angle = point[0] + np.arctan2(rely, R_earth)
     lon_angle = point[1] + np.arctan2(relx, R_earth)
-    df['lat'] = lat_angle
-    df['lon'] = lon_angle
+    result_df['lat'] = lat_angle
+    result_df['lon'] = lon_angle
 
-    return deg_to_lon(lon_angle), lat_angle, df
+    return deg_to_lon(lon_angle), lat_angle, result_df
 
 def azel_to_xy(df, id=None, h=HEIGHT):
     '''
@@ -462,12 +552,12 @@ if __name__ == '__main__':
 
     # S4 = time_plot('sig1_S4', ismrdb, svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
     # TEC = time_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, loc=loc, out='plots', log=logger)
-    # hist_plot('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
-    # hist_plot('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
-    # hist_plot('sig1_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    # hist_plot('sig2_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    # hist_plot('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
-    # hist_plot('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig1_S4', ismrdb,  svid=tuple(range(1, 38)), tstart=startdate, tend=enddate, plotdata=S4, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig1_TEC', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, plotdata=TEC, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig1_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig2_S4', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig1_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
+    # hist_plot_manual('sig2_phi01', ismrdb,  svid=tuple(range(38,62)), tstart=startdate, tend=enddate, out='plots', loc=loc, log=logger)
 
     plot_az_el_multisat('sig1_TEC', ismrdb, svid=satellites,
                         tstart=startdate, tend=enddate, loc=loc,

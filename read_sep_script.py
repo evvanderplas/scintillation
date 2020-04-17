@@ -22,8 +22,8 @@ def main():
     for location in scint_locations:
         print('One day: loop over location: {}'.format(location))
 
-    # instrument_location = 'SABA'
-    instrument_location = 'SEUT'
+    instrument_location = 'SABA'
+    # instrument_location = 'SEUT'
     data_dir = os.path.join(data_location, instrument_location)
     print('Walking directory tree {}'.format(data_dir))
     ismrdb = os.path.join(db_location, 'scint_new_{}.db'.format(instrument_location))
