@@ -92,7 +92,10 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
     elif isinstance(svid, int):
         sql_crit.append('SVID = {}'.format(svid))
     elif isinstance(svid, (list, tuple)):
-        sql_crit.append('SVID IN {}'.format(tuple(svid)))
+        if len(svid) == 1:
+            sql_crit.append('SVID = {}'.format(svid[0]))
+        else:
+            sql_crit.append('SVID IN {}'.format(tuple(svid)))
 
     if tstart is not None:
         sqltime = 'timestamp BETWEEN {} and {}'.format(timestart, timeend)
