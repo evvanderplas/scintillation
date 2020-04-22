@@ -26,8 +26,16 @@ class ISMRplot():
         self.tag = tag
         self._complete_config(configfile)
 
+        self.vardata = None
+        self.timedata = np.array([], dtype=np.float)
+        self.timeofday = np.array([], dtype=np.float)
+
         if self.config['plot_type'] == 'scatter':
             self.scatterplot()
+            self.tag = 'extra_tod_TEC'
+            self.scatterplot(xvar='timeofday', yvar='sig1_TEC')
+            self.tag = 'extra_tod_S4'
+            self.scatterplot(xvar='timeofday', yvar='sig1_S4')
 
     def _complete_config(self, configfile):
         '''
@@ -97,6 +105,9 @@ class ISMRplot():
                 allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
                 nanvar = np.logical_and(np.isnan(allvardata), nanvar)
 
+            # remeber where the NaN's are:
+            self.nanvar = nanvar
+
             # second round:
             for idx_var, multivar in enumerate(vars):
                 allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
@@ -106,27 +117,58 @@ class ISMRplot():
 
         # gamble that the not available data is the same for all vars in the list...
         timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
-        timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
+        self.timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
 
-        return timedata, vardata
+        # for a next plot(?)
+        self.vardata = vardata
 
-    def scatterplot(self):
+        return vardata
+
+    def _add_hour_of_day(self):
+        '''
+            Get the time-of-day for each measurment
+        '''
+        tod = np.zeros_like(self.timedata)
+        for mt_idx, mtime in enumerate(self.timedata):
+            tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).seconds/3600.
+        self.timeofday = tod[~self.nanvar]
+
+    def scatterplot(self, xvar=None, yvar=None):
         '''
             make a scatterplot
         '''
 
-        timedata, vardata = self._prepare_data()
+        if self.vardata is None:
+            vardata = self._prepare_data()
+
         vars = self.config['plot_var']
         if len(vars) > 2:
             self.log.error('Specify which variables to plot: {}'.format(vars))
 
-        xdata = vardata[vars[0]]
-        ydata = vardata[vars[1]]
+        if xvar is None:
+            xname = vars[0]
+            xdata = self.vardata[xname]
+        elif xvar == 'timeofday':
+            self._add_hour_of_day()
+            xdata = self.timeofday
+            xname = 'timeofday'
+        if yvar is None:
+            yname = vars[1]
+            ydata = self.vardata[yname]
+        else:
+            try:
+                ydata = self.vardata[yvar]
+                yname = yvar
+            except KeyError as kerr:
+                print('Not an available variable: {}'.format(kerr))
+                sys.exit(0)
+
         fig, ax = plt.subplots()
+        ax.axhline(y=0, alpha=0.4)
         ax.scatter(xdata, ydata)
-        ax.set_xlabel(vars[0])
-        ax.set_ylabel(vars[1])
-        title = '{} vs {}'
+        ax.set_xlabel(xname)
+        ax.set_ylabel(yname)
+        title = '{} vs {}'.format(yname, xname)
         if len(self.config['satellites']) < 4:
             title += ' for satellites {}'.format(self.config['satellites'])
         title += ' from {} - {}'.format(self.config['startdt'].strftime('%Y-%m-%d'),
@@ -135,9 +177,9 @@ class ISMRplot():
 
 
         plotfile = os.path.join(self.config['outputdir'],
-                            'scatter_{}-{}_{}-{}_{}.png'.format(vars[0], vars[1],
-                                    timedata[0].strftime('%Y%m%d%H%M'),
-                                    timedata[-1].strftime('%Y%m%d%H%M'), tag))
+                            'scatter_{}-{}_{}-{}_{}.png'.format(xname, yname,
+                                    self.timedata[0].strftime('%Y%m%d%H%M'),
+                                    self.timedata[-1].strftime('%Y%m%d%H%M'), self.tag))
         self.log.info('Plotted {}'.format(plotfile))
         fig.savefig(plotfile)
         plt.close(fig)
