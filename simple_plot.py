@@ -31,7 +31,7 @@ class ISMRplot():
         self.timeofday = np.array([], dtype=np.float)
 
         if self.config['plot_type'] == 'scatter':
-            self.scatterplot()
+            self.scatterplot(colorby='timeofday')
             self.tag = 'extra_tod_TEC'
             self.scatterplot(xvar='timeofday', yvar='sig1_TEC')
             self.tag = 'extra_tod_S4'
@@ -118,6 +118,8 @@ class ISMRplot():
         # gamble that the not available data is the same for all vars in the list...
         timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
         self.timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
+        self._add_hour_of_day()
+        vardata['timeofday'] = self.timeofday
 
         # for a next plot(?)
         self.vardata = vardata
@@ -133,7 +135,7 @@ class ISMRplot():
             tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).seconds/3600.
         self.timeofday = tod[~self.nanvar]
 
-    def scatterplot(self, xvar=None, yvar=None):
+    def scatterplot(self, xvar=None, yvar=None, colorby=None):
         '''
             make a scatterplot
         '''
@@ -149,7 +151,6 @@ class ISMRplot():
             xname = vars[0]
             xdata = self.vardata[xname]
         elif xvar == 'timeofday':
-            self._add_hour_of_day()
             xdata = self.timeofday
             xname = 'timeofday'
         if yvar is None:
@@ -162,10 +163,21 @@ class ISMRplot():
             except KeyError as kerr:
                 print('Not an available variable: {}'.format(kerr))
                 sys.exit(0)
+        if colorby is None:
+            color = 'b'
+        else:
+            try:
+                colors = self.vardata[colorby]
+            except KeyError:
+                print('Not an available variable: {}'.format(kerr))
+                sys.exit(0)
 
         fig, ax = plt.subplots()
-        ax.axhline(y=0, alpha=0.4)
-        ax.scatter(xdata, ydata)
+        ax.axhline(y=0, color='r', alpha=0.4)
+        if not colorby:
+            ax.scatter(xdata, ydata, c=color)
+        else:
+            ax.scatter(xdata, ydata, c=colors, cmap='hsv')
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
         title = '{} vs {}'.format(yname, xname)
