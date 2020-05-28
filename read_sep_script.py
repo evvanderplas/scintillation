@@ -3,7 +3,7 @@
   Script that reads csv files and puts data in database
 '''
 
-import os
+import os, sys
 import time
 
 # use read functionality:
@@ -23,11 +23,14 @@ def main():
         print('One day: loop over location: {}'.format(location))
 
     instrument_location = 'SABA'
-    # instrument_location = 'SEUT'
+    instrument_location = 'SEUT'
     data_dir = os.path.join(data_location, instrument_location)
     print('Walking directory tree {}'.format(data_dir))
     ismrdb = os.path.join(db_location, 'scint_new_{}.db'.format(instrument_location))
     print('Writing to {}'.format(ismrdb))
+
+    ismr_red_db = os.path.join(db_location, 'scint_reduced_{}.db'.format(instrument_location))
+    print('Writing to {}'.format(ismr_red_db))
 
     # start the time
     t_start = time.time()
@@ -42,14 +45,23 @@ def main():
                     continue
                 infile = os.path.join(dirname, file)
                 if instrument_location in dirname:
-                    ismr_dataframe = read_ismr.read_ismr(infile)
+                    # ismr_dataframe = read_ismr.read_ismr(infile)
+                    # if ismr_dataframe.shape[0] == 0:
+                    #     continue
+                    # read_ismr.write_to_sqlite(ismr_dataframe, dbname=ismrdb,
+                    #                           loc=instrument_location)
+
+                    ismr_dataframe = read_ismr.read_reduced_ismr(infile)
                     if ismr_dataframe.shape[0] == 0:
                         continue
-                    read_ismr.write_to_sqlite(ismr_dataframe, dbname=ismrdb,
-                                              loc=instrument_location)
+                    read_ismr.write_to_reduced_sqlite(ismr_dataframe, dbname=ismr_red_db,
+                                                    loc=instrument_location)
+                    # TEST reduced reading
+                    # sys.exit(0)
 
             # keep track of time
             print('Elapsed: {} s'.format(time.time() - t_start))
+            print('Wrote {}'.format(ismr_red_db))
 
 if __name__ == '__main__':
     main()

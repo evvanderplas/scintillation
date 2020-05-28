@@ -2,5 +2,8 @@
 {
       'ismrdb_path': '/data/storage/trop/users/plas/SW',
       # 'ismrdb_path': '/Users/plas/data/SW'
-      'ismrdb_name': 'test_scint_new_{}.db',
+      # 'ismrdb_name': 'test_scint_new_{}.db',
+      # 'ismrdb_name': 'scint_new_{}.db',
+      'ismrdb_name': 'scint_reduced_{}.db',
+      'tabname': 'sep_data_{}'
 }

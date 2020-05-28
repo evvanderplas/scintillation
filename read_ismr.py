@@ -35,7 +35,7 @@ NAMES = ['azimuth', 'elevation',
          'sig1_T', 'sig2_T', 'sig3_T'
          ]
 
-REDUCED_NAMES = ['azimuth', 'elevation', 'sig1_TEC', 
+REDUCED_NAMES = ['azimuth', 'elevation', 'sig1_TEC',
                  'sig1_S4', 'sig1_S4_corr',
                  'sig2_S4', 'sig2_S4_corr',
                  'sig3_S4', 'sig3_S4_corr',]
@@ -74,6 +74,32 @@ def init_db(cursor, tabname='sep_data'):
 
     return cursor
 
+def init_reduced_db(cursor, tabname='sep_data'):
+    '''
+        Create table for a reduced set of the the SEPTENTRIO data
+    '''
+
+    # namelist = 'index INTEGER, '
+    namelist = ', '.join('{} INTEGER'.format(name) for name in HEADER_NAMES)
+    namelist += ', ' + ', '.join('{} REAL'.format(name) for name in REDUCED_NAMES)
+    namelist += ', timestamp INTEGER'
+    create_table_sql = '''CREATE TABLE IF NOT EXISTS {} (
+        {},
+        PRIMARY KEY ('weeknumber', 'timeofweek', 'SVID')
+    )
+    '''.format(tabname, namelist)
+    create_index = 'CREATE INDEX IF NOT EXISTS "idx_timestamp" ON {} ("timestamp")'.format("{}".format(tabname))
+
+    try:
+        # print('Create table using: {}'.format(create_table_sql))
+        cursor.execute(create_table_sql)
+        cursor.execute(create_index)
+    except Exception as e:
+        print(e)
+
+    return cursor
+
+
 def write_to_sqlite(df, dbname='scint.db', tabname='sep_data_{}', loc='SABA'):
     '''
         Write the data (in dataframe) from a ISMR file to an SQLite database
@@ -96,6 +122,24 @@ def write_to_sqlite(df, dbname='scint.db', tabname='sep_data_{}', loc='SABA'):
     # df.to_sql('other_data_{}'.format(loc), conn, if_exists='append')
 
     return
+
+def write_to_reduced_sqlite(df, dbname='scint.db', tabname='sep_data_{}', loc='SABA'):
+    '''
+        Write the data (in dataframe) from a ISMR file to an SQLite database
+    '''
+
+    # isolation_level = None should enable autocommit
+    conn = sqlite3.connect(dbname) #, isolation_level=None)
+    c = conn.cursor()
+
+    init_reduced_db(c, tabname=tabname.format(loc))
+    try:
+        df.to_sql('sep_data_{}'.format(loc), conn, if_exists='append', index=False)
+    except sqlite3.IntegrityError as sqlerr:
+        print('Already present in the database: {}, moving on'.format(sqlerr))
+
+    return
+
 
 def weeksecondstoutc(gpsweek, gpsseconds, leapseconds):
     '''
@@ -139,10 +183,23 @@ def read_ismr(infile):
         df = pd.read_csv(ismr, header=None, names=df_names, na_values='nan')
 
     datetimes, df['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
-    # print(df.head())
-    # if len(datetimes)>10:
-    #     for idx in range(50):
-    #         print('week {}, timeofweek {},  {} (so timestamp {}) vs {}'.format(df.weeknumber.values[idx], df.timeofweek.values[idx],
-    #             datetimes[idx], df.timestamp[idx], dt.datetime.fromtimestamp(df.timestamp[idx])))
 
     return df
+
+def read_reduced_ismr(infile):
+    '''
+        Open and read ISMR files
+        return panda dataframe
+    '''
+
+    print('Parsing {}'.format(infile))
+
+    df_names = HEADER_NAMES + NAMES
+    with open(infile, 'r') as ismr:
+        df = pd.read_csv(ismr, header=None, names=df_names, na_values='nan')
+
+    df_reduced = df[HEADER_NAMES + REDUCED_NAMES]
+    # print(df_reduced.head())
+    datetimes, df_reduced['timestamp'] = weeksecondstoutc(df.weeknumber.values, df.timeofweek.values, 0)
+
+    return df_reduced
