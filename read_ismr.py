@@ -133,12 +133,14 @@ def write_to_reduced_sqlite(df, dbname='scint.db', tabname='sep_data_{}', loc='S
     c = conn.cursor()
 
     init_reduced_db(c, tabname=tabname.format(loc))
+    success = False
     try:
         df.to_sql('sep_data_{}'.format(loc), conn, if_exists='append', index=False)
+        success = True
     except sqlite3.IntegrityError as sqlerr:
         print('Already present in the database: {}, moving on'.format(sqlerr))
 
-    return
+    return success
 
 
 def weeksecondstoutc(gpsweek, gpsseconds, leapseconds):

@@ -11,6 +11,7 @@ import argparse
 import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 from lib.tools import get_sqlite_data, init_logger, read_yaml, read_confdate
 import lib.constants as constants
@@ -27,9 +28,11 @@ class ISMRplot():
         self.config = {}
         self.log = log
         self.tag = tag
+        self.location = None
         self._complete_config(configfile)
 
         self.vardata = None
+        self.nanvar = None
         self.timedata = np.array([], dtype=np.float)
         self.timeofday = np.array([], dtype=np.float)
 
@@ -45,6 +48,12 @@ class ISMRplot():
             self.tag = 'extra_tod_{}'.format(var2)
             self.log.debug('Extra: xvar timeofday, yvar = {}'.format(var2))
             self.scatterplot(xvar='timeofday', yvar=var2)
+
+        if 'histogram' in self.config and self.config['histogram']:
+            for var in self.config['plot_var']:
+                self.tag = 'somerange'
+                self.log.debug('Histogram of {}'.format(var))
+                self.hist_plot(var)
 
     def _complete_config(self, configfile):
         '''
@@ -126,10 +135,13 @@ class ISMRplot():
             nanvar = np.zeros_like(timestampdata, dtype=bool)
             for idx_var, multivar in enumerate(vars):
                 allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
-                nanvar = np.logical_and(np.isnan(allvardata), nanvar)
+                self.log.debug('Round {}: # of nans: {}, total {}'.format(idx_var,
+                    np.sum(np.isnan(allvardata)), np.sum(nanvar)))
+                nanvar = np.logical_or(np.isnan(allvardata), nanvar)
 
             # remember where the NaN's are:
             self.nanvar = nanvar
+            self.log.debug('How many nan? {}'.format(np.sum(self.nanvar)))
 
             # second round:
             # self.log.debug('Loop over vars: {}, but index over req_list: {}'.format(vars, req_list))
@@ -137,7 +149,7 @@ class ISMRplot():
 
                 allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
                 vardata[multivar] = allvardata[~nanvar]
-                log.debug('Size vardata {}: {}'.format(multivar, vardata[multivar].shape))
+                self.log.debug('Size vardata {}: {}'.format(multivar, vardata[multivar].shape))
 
         # gamble that the not available data is the same for all vars in the list...
         timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
@@ -147,7 +159,11 @@ class ISMRplot():
 
         # for a next plot(?)
         self.vardata = vardata
+        self.log.debug('Vars: {}, vardata: {}'.format(vars, vardata.keys()))
+        for var in vars:
+            self.log.debug('Var {}: {}'.format(var, np.sum(np.isnan(vardata[var]))))
 
+        # sys.exit(0)
         return vardata
 
     def _add_hour_of_day(self):
@@ -157,7 +173,7 @@ class ISMRplot():
         tod = np.zeros_like(self.timedata)
         for mt_idx, mtime in enumerate(self.timedata):
             tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).seconds/3600.
-        self.timeofday = tod[~self.nanvar]
+        self.timeofday = tod
 
     def _sats_for_figname(self):
         '''
@@ -172,9 +188,9 @@ class ISMRplot():
             smin, smax = np.min(list(sats)), np.max(list(sats))
             return '{}-{}'.format(smin, smax)
 
-    def scatterplot(self, xvar=None, yvar=None, colorby=None):
+    def _prepare_plotdata(self, xvar, yvar, colorby):
         '''
-            make a scatterplot
+            Decide which data makes it in the plot
         '''
 
         if self.vardata is None:
@@ -211,7 +227,7 @@ class ISMRplot():
                 self.log.error('Not an available variable: {} in {}'.format(yvar, self.vardata.keys()))
                 sys.exit(0)
         if colorby is None:
-            color = 'b'
+            colors = 'b'
         else:
             try:
                 colors = self.vardata[colorby]
@@ -220,12 +236,62 @@ class ISMRplot():
                 self.log.error('You want: {}, available: {}'.format(colorby, self.vardata.keys()))
                 sys.exit(0)
 
+        return xdata, ydata, xname, yname, colorby, colors
+
+    def _interpret_histogram_bins(self, var):
+        '''
+            See if in the configuration file the bins for the histogram have been
+            specified, and if yes, how
+        '''
+        # the bins are configurable: if given [a, b] is amount of bins in x, y direction
+        # or if a or b is array-like they represent the bins (edges) themselves
+        if 'histbins' in self.config:
+            histbins_conf = self.config['histbins']
+            # check if it has a separate entry for bins in the x and y direction
+            if len(histbins_conf) > 1:
+                histbins_x, histbins_y = histbins_conf
+                # check if it is a number or an attempt to define an array:
+                for idx, histb in enumerate(histbins_conf): #(histbins_x, histbins_y):
+                    # print('Looking at histbins: {}'.format(histb))
+                    if idx > 1:
+                        break # do not consider strangely formatted bins
+                    if not isinstance(histb, (list, tuple, np.ndarray)):
+                        pass
+                    else:
+                        if len(histb) == 2:
+                            histbins_conf[idx] = np.arange(histb[0], histb[1])
+                        elif len(histb) == 3:
+                            histbins_conf[idx] = np.linspace(histb[0], histb[1], histb[2])
+                histbins = histbins_conf
+                # print('Were the histbins changed? {}'.format(histbins))
+            else:
+                histbins = [histbins_conf, histbins_conf]
+        else:
+            if self.vardata:
+                min_var = np.nanmin([-0.2 * np.nanpercentile(self.vardata[var], 2.),
+                                     0.8 * np.nanpercentile(self.vardata[var], 2.),
+                                     1.2 * np.nanpercentile(self.vardata[var], 2.)])
+                max_var = 1.3 * np.nanpercentile(self.vardata[var], 98.)
+                histbins = [200, np.linspace(min_var, max_var, 300)]
+            else: # if all else fails: try useful TEC bins:
+                histbins = [150, 50]
+
+        return histbins
+
+
+    def scatterplot(self, xvar=None, yvar=None, colorby=None):
+        '''
+            make a scatterplot
+        '''
+
+        xdata, ydata, xname, yname, colorby, colors = self._prepare_plotdata(xvar, yvar, colorby)
+
         fig, ax = plt.subplots()
         ax.axhline(y=0, color='r', alpha=0.4)
         if not colorby:
-            ax.scatter(xdata, ydata, c=color, edgecolors='none')
+            ax.scatter(xdata, ydata, c=colors, edgecolors='none')
         else:
-            ax.scatter(xdata, ydata, c=colors, cmap='hsv', alpha=0.7, edgecolors='none')
+            ax.scatter(xdata, ydata, c=colors, cmap='hsv', alpha=0.5, edgecolors='none')
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
         title = '{} vs {}'.format(yname, xname)
@@ -237,13 +303,126 @@ class ISMRplot():
 
 
         plotfile = os.path.join(self.config['outputdir'],
-                            'scatter_{}-{}_{}-{}_sat_{}_{}.png'.format(xname, yname,
+                            'scatter_{}-{}_{}_{}-{}_sat_{}_{}.png'.format(xname, yname,
+                                    self.config['location'],
                                     self.timedata[0].strftime('%Y%m%d%H%M'),
                                     self.timedata[-1].strftime('%Y%m%d%H%M'),
                                     self._sats_for_figname(), self.tag))
         self.log.info('Plotted {}'.format(plotfile))
         fig.savefig(plotfile)
         plt.close(fig)
+
+    def hist_plot(self, var):
+        '''
+            Make a histogram plot of a variable var in the ismr database db
+        '''
+
+        if self.vardata is None:
+            vardata = self._prepare_data()
+
+        for checkvar in self.vardata.keys():
+            self.log.debug('Var {}: {} or {}'.format(checkvar, self.vardata[checkvar].shape,
+                                self.nanvar.shape))
+        # for var in self.vardata.keys():
+        #     self.log.debug('Var {}: {}'.format(var, np.sum(np.isnan(self.vardata[var]))))
+
+        self.log.debug('Hist data min, max: {} - {}'.format(np.min(self.vardata[var]), np.max(self.vardata[var])))
+        # 1D histogram
+        fig, ax = plt.subplots()
+        _nrbins, _bins, _patches = ax.hist(self.vardata[var], bins=50, normed=1, facecolor='green', alpha=0.75)
+        ax.set_xlabel('{} (binned)'.format(var))
+        ax.set_title('Histogram of {} at {}'.format(var, self.config['location']))
+
+        # figname = os.path.join(self.config['outputdir'], 'sql_hist_{}_{}.png'.format(tag, loc))
+        plotfile = os.path.join(self.config['outputdir'],
+                                'hist_{}_{}_{}-{}_sat_{}_{}.png'.format(var,
+                                            self.config['location'],
+                                            self.timedata[0].strftime('%Y%m%d%H%M'),
+                                            self.timedata[-1].strftime('%Y%m%d%H%M'),
+                                            self._sats_for_figname(), self.tag))
+        self.log.debug('Saving {}'.format(plotfile))
+        fig.savefig(plotfile)
+        plt.close(fig)
+
+        # 2D histogram
+        fig, ax = plt.subplots()
+
+        # make sure the information passed on about the hostograms is properly implemented
+        histbins = self._interpret_histogram_bins(var)
+        self.log.debug('Bins for 2D histogram: {}'.format(histbins))
+
+        ax.hist2d(self.vardata['timestamp'], self.vardata[var], bins=histbins, norm=LogNorm())
+        ax.set_ylabel('{} (binned)'.format(var))
+        if 'yrange' in self.config:
+            ymin, ymax = self.config['yrange']
+            ax.set_ylim(ymin, ymax)
+        else:
+            ax.set_ylim(np.nanmin([0., np.nanpercentile(self.vardata[var], 2.)]),
+                        np.nanmax([1.3 * np.nanpercentile(self.vardata[var], 98.)]) )
+
+        # draw a red line where the zero should be:
+        ax.axhline(y=0, color='red', linestyle='-', alpha=0.4)
+
+        xlocs = ax.get_xticks()
+        ax.set_xticks(xlocs) # unnecessary?
+        dtlabels = [dt.datetime.fromtimestamp(tlab) for tlab in xlocs]
+        ax.set_xticklabels([dtlab.strftime('%Y-%m-%d') for dtlab in dtlabels])
+        ax.set_xlabel('Time (binned)')
+
+        # ax.hist2d(timedata, vardata, bins=[150, 50], norm=LogNorm())
+
+        fig.autofmt_xdate()
+        ax.set_title('Histogram as a function of time of {} at {}'.format(var, self.config['location']))
+
+        plotfile = os.path.join(self.config['outputdir'],
+                                'hist2D_{}_{}_{}-{}_sat_{}_{}.png'.format(var,
+                                            self.config['location'],
+                                            self.timedata[0].strftime('%Y%m%d%H%M'),
+                                            self.timedata[-1].strftime('%Y%m%d%H%M'),
+                                            self._sats_for_figname(), self.tag))
+        self.log.debug('Saving {}'.format(plotfile))
+        fig.savefig(plotfile)
+        plt.close(fig)
+
+        # 2D histogram time_of_day
+        fig, ax = plt.subplots()
+
+        # make sure the information passed on about the hostograms is properly implemented
+        histbins_tod = [24, histbins[1]]
+        houroftheday = np.array([t.hour for t in self.timedata])
+        ax.hist2d(houroftheday, self.vardata[var], bins=histbins_tod, norm=LogNorm())
+        ax.set_ylabel('{} (binned)'.format(var))
+        if 'yrange' in self.config:
+            ymin, ymax = self.config['yrange']
+            ax.set_ylim(ymin, ymax)
+        else:
+            ax.set_ylim(np.nanmin([0., np.nanpercentile(self.vardata[var], 2.)]),
+                        np.nanmax([1.3 * np.nanpercentile(self.vardata[var], 98.)]) )
+
+        # draw a red line where the zero should be:
+        ax.axhline(y=0, color='red', linestyle='-', alpha=0.4)
+
+        # xlocs = ax.get_xticks()
+        # ax.set_xticks(xlocs) # unnecessary?
+        # dtlabels = [dt.datetime.fromtimestamp(tlab) for tlab in xlocs]
+        # ax.set_xticklabels([dtlab.strftime('%Y-%m-%d') for dtlab in dtlabels])
+        ax.set_xlabel('Time of day (binned)')
+
+        fig.autofmt_xdate()
+        ax.set_title('Histogram as a function of time of day for {} at {}'.format(var, self.config['location']))
+
+        plotfile = os.path.join(self.config['outputdir'],
+                                'hist2D_TOD_{}_{}_{}-{}_sat_{}_{}.png'.format(var,
+                                                self.config['location'],
+                                                self.timedata[0].strftime('%Y%m%d%H%M'),
+                                                self.timedata[-1].strftime('%Y%m%d%H%M'),
+                                                self._sats_for_figname(), self.tag))
+        self.log.debug('Saving {}'.format(plotfile))
+        fig.savefig(plotfile)
+        plt.close(fig)
+
+        return
+
 
 
 if __name__ == '__main__':

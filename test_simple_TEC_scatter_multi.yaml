@@ -3,13 +3,14 @@
   'plot_var': ['sig1_S4', 'sig1_TEC' ],
   'plot_type': 'scatter',
   'colorby': 'SVID',
-  'startdate': [2020,1,15,0,0,0],
-  'enddate': [2020,2,1,0,0,0],
+  'histogram': True,
+  'startdate': [2020,5,1,0,0,0],
+  'enddate': [2020,6,1,0,0,0],
   # 'enddate': [2020,2,25,0,0,0],
   'location': 'SABA',
   # 'location': 'SEUT',
   'satellites': [3,4,5,6,7,8,9,10,11], # single GPS satellite
-  'histbins': [500, [-150,150,201]],
-  'yrange': [-100., 200.],
+  # 'histbins': [500, [-150,150,201]],
+  # 'yrange': [-100., 200.],
   'outputdir': './plots/scatter'
 }
