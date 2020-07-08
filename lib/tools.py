@@ -11,7 +11,9 @@ import yaml
 import sqlite3
 
 import datetime as dt
+import numpy as np
 
+from lib.constants import TOPO, R_earth
 
 def init_logger():
     '''
@@ -91,7 +93,7 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
         print('Use all satellite ID (SVID)')
     elif isinstance(svid, int):
         sql_crit.append('SVID = {}'.format(svid))
-    elif isinstance(svid, (list, tuple)):
+    elif isinstance(svid, (list, tuple, np.ndarray)):
         if len(svid) == 1:
             sql_crit.append('SVID = {}'.format(svid[0]))
         else:
@@ -111,6 +113,47 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
     log.debug('Data: {}'.format(data[:20])) # , data[0].shape))
 
     return data
+
+def deg_to_lon(angle):
+    '''
+        Return angle between -180 and 180 degrees
+    '''
+    return (angle + 180.) % 360 - 180
+
+def azel_to_xy(azimuth, elevation, h=None):
+    '''
+        Compute x,y from azimuth and elevation in dataframe
+        following:
+        x = cos e * cos phi
+        y = sin e * sin phi
+
+    '''
+    if h is None:
+        h = 300 # km
+
+    azdata = 2. * np.pi * (azimuth/360.)
+    eldata = 2. * np.pi * (elevation/360.)
+
+    x = h * np.cos(eldata) * np.sin(azdata)
+    y = h * np.cos(eldata) * np.cos(azdata)
+
+    return x,y
+
+def azel_to_latlon(azimuth, elevation, point=TOPO['SABA'], height=300):
+    '''
+        Compute latitude longitude from azimuth and elevation angle
+        and height in km
+
+        First, distance north and east is computed using height, then from a
+        distance from a certain latlon-point lat and lon.
+    '''
+    relx, rely = azel_to_xy(azimuth, elevation, h=height)
+    lat_angle = point[0] + np.arctan2(rely, R_earth)
+    lon_angle = point[1] + np.arctan2(relx, R_earth)
+    # result_df['lat'] = lat_angle
+    # result_df['lon'] = lon_angle
+
+    return deg_to_lon(lon_angle), lat_angle
 
 if __name__ == '__main__':
 

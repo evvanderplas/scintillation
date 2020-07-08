@@ -33,3 +33,9 @@ REDUCED_NAMES = ['azimuth', 'elevation', 'sig1_TEC',
                  'sig1_S4', 'sig1_S4_corr',
                  'sig2_S4', 'sig2_S4_corr',
                  'sig3_S4', 'sig3_S4_corr',]
+
+TOPO = {
+        'SABA': (17.62048, -63.24323),
+        'SEUT': (17.47140, -62.97570),
+        }
+R_earth = 6378.100   # km

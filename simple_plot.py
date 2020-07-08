@@ -13,8 +13,12 @@ import datetime as dt
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
+import cartopy.crs as ccrs
+
+import lib.tools
 from lib.tools import get_sqlite_data, init_logger, read_yaml, read_confdate
 import lib.constants as constants
+
 
 class ISMRplot():
     '''
@@ -49,6 +53,10 @@ class ISMRplot():
             self.log.debug('Extra: xvar timeofday, yvar = {}'.format(var2))
             self.scatterplot(xvar='timeofday', yvar=var2)
 
+        elif self.config['plot_type'] == 'map':
+            for mapvar in self.config['plot_var']:
+                self.geo_plot(mapvar)
+
         if 'histogram' in self.config and self.config['histogram']:
             for var in self.config['plot_var']:
                 self.tag = 'somerange'
@@ -75,6 +83,37 @@ class ISMRplot():
         for item, setting in dbconfig.items():
             self.config[item] = setting
 
+        if 'colormap' in self.config:
+            self.cmap = self.config['colormap']
+        else:
+            self.cmap = 'hot_r'
+
+        # prepare to output in the output directory
+        os.makedirs(self.config['outputdir'], exist_ok=True)
+
+    def _interpret_svid(self):
+        '''
+            allow for easier selection of GNSS satellites
+        '''
+        SATRANGE = {
+            'gps': np.arange(1,38),
+            'glonass': np.arange(38,62),
+            'galileo': np.arange(71, 103),
+            'sbas': np.arange(120,141),
+            'compass': np.arange(141, 173),
+            'qzss': np.arange(180,188)
+        }
+
+        if isinstance(self.config['satellites'], str):
+            if self.config['satellites'].lower() in SATRANGE.keys():
+                return SATRANGE[self.config['satellites'].lower()]
+        elif isinstance(self.config['satellites'], (tuple, list, np.array)):
+            return self.config['satellites']
+        elif '-' in self.config['satellites']:
+            print('Divination of a range')
+            s1, sl = self.config['satellites'].split('-')
+            return np.arange(int(s1), int(sl))
+
     def _prepare_data(self):
         '''
             Look in config which data to retrieve from the database
@@ -88,7 +127,7 @@ class ISMRplot():
         # scint_db = os.path.join(self.config['ismrdb_path'], self.config['ismrdb_name'].format(loc))
         tabname = self.config['tabname'].format(loc)
         if 'satellites' in self.config:
-            svid = self.config['satellites']
+            svid = self._interpret_svid() # self.config['satellites']
         else:
             svid = None
 
@@ -112,6 +151,13 @@ class ISMRplot():
                 vars.insert(-1, self.config['colorby'])
                 nrvars += 1
 
+            for geovar in ('azimuth', 'elevation'):
+                if 'map' in self.config['plot_type'] and geovar not in vars:
+                    # we use the fact that time comes last:
+                    req_list.insert(-1, geovar)
+                    vars.insert(-1, geovar)
+                    nrvars += 1
+
             plotdata = get_sqlite_data(req_list, self.ismrdb, table=tabname,
                                        svid=svid,
                                        tstart=tstart, tend=tend, log=log)
@@ -134,9 +180,22 @@ class ISMRplot():
             # first to get all the nan-values, second to get the data:
             nanvar = np.zeros_like(timestampdata, dtype=bool)
             for idx_var, multivar in enumerate(vars):
-                allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
+                allvardata = np.ones(len(plotdata), dtype=np.float)
+                try:
+                    # allvardata = np.array([np.float(t[idx_var]) for t in plotdata if not None in t else None])
+                    for idx_t, t in enumerate(plotdata):
+                        if None in t or str(t[idx_var]).isalpha():
+                            allvardata[idx_t] = None
+                        else:
+                            allvardata[idx_t] = np.float(t[idx_var])
+                except TypeError as terr:
+                    for t in plotdata:
+                        if t[idx_var] is None:
+                            print('{}, idx {}: {} allvars = {}'.format(t, idx_var, multivar, vars))
+                    self.log.error('what went wrong? var {} in {} or {}?: {}'.format(multivar, vars, req_list, t))
+                    self.log.error('up to now: {}'.format(allvardata))
                 self.log.debug('Round {}: # of nans: {}, total {}'.format(idx_var,
-                    np.sum(np.isnan(allvardata)), np.sum(nanvar)))
+                            np.sum(np.isnan(allvardata)), np.sum(nanvar)))
                 nanvar = np.logical_or(np.isnan(allvardata), nanvar)
 
             # remember where the NaN's are:
@@ -147,7 +206,13 @@ class ISMRplot():
             # self.log.debug('Loop over vars: {}, but index over req_list: {}'.format(vars, req_list))
             for idx_var, multivar in enumerate(req_list):
 
-                allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
+                # allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
+                for idx_t, t in enumerate(plotdata):
+                    if None in t or str(t[idx_var]).isalpha():
+                        allvardata[idx_t] = None
+                    else:
+                        allvardata[idx_t] = np.float(t[idx_var])
+
                 vardata[multivar] = allvardata[~nanvar]
                 self.log.debug('Size vardata {}: {}'.format(multivar, vardata[multivar].shape))
 
@@ -349,7 +414,7 @@ class ISMRplot():
 
         # make sure the information passed on about the hostograms is properly implemented
         histbins = self._interpret_histogram_bins(var)
-        self.log.debug('Bins for 2D histogram: {}'.format(histbins))
+        # self.log.debug('Bins for 2D histogram: {}'.format(histbins))
 
         ax.hist2d(self.vardata['timestamp'], self.vardata[var], bins=histbins, norm=LogNorm())
         ax.set_ylabel('{} (binned)'.format(var))
@@ -422,6 +487,61 @@ class ISMRplot():
         plt.close(fig)
 
         return
+
+    def geo_plot(self, var):
+        '''
+            Plot the data on a map
+        '''
+        if self.vardata is None:
+            vardata = self._prepare_data()
+
+        sphere = ccrs.PlateCarree(globe=ccrs.Globe(datum='WGS84',
+                                                   ellipse='sphere'))
+
+        midpoint = constants.TOPO[self.config['location']]
+        fig = plt.figure()
+        ax = plt.axes(projection=ccrs.PlateCarree())
+
+        lon0, lat0 = midpoint
+        extent = ( lat0 -5., lat0 + 5., lon0 - 5., lon0 + 5.)
+        ax.set_extent(extent, crs=ccrs.PlateCarree())
+        ax.coastlines(resolution='50m', color='black', linewidth=1)
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
+                  linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlabels_top = False
+        gl.ylabels_right = False
+
+        lats, lons = lib.tools.azel_to_latlon(self.vardata['azimuth'], self.vardata['elevation'],
+                                              point=midpoint, height=3.e5)
+        self.log.debug('Lats: {}-{}, \nLons: {}-{}'.format(np.nanmin(lats), np.nanmax(lats),
+                                                            np.nanmin(lons), np.nanmax(lons)))
+        plotdata = self.vardata[var]
+        minval = np.nanpercentile(plotdata, 10.)
+        maxval = np.nanpercentile(plotdata, 95.)
+        self.log.debug('Plotdata {}: plot {} to {} \n{}'.format(var, minval, maxval, plotdata[:30]))
+
+        if var == 'sig1_TEC':
+            self.log.debug(lats)
+            self.log.debug(lons)
+            self.log.debug(plotdata)
+        azel = ax.scatter(lons, lats, s=30, c=plotdata, vmin=minval, vmax=maxval,
+                        cmap=plt.cm.get_cmap(self.cmap), #linewidths=0, edgecolors=None,
+                        )
+
+        ax.set_xlabel('Longitude [deg]')
+        ax.set_ylabel('Latitude [deg]')
+        ax.set_title('Tracks: {}'.format(var))
+        cb = fig.colorbar(azel, ax=ax)
+        cb.set_label('{} [units]'.format(var))
+        outfig = os.path.join(self.config['outputdir'],
+                'azel_map_{}_{}_{}-{}_sat_{}_{}.png'.format(var,
+                                self.config['location'],
+                                self.timedata[0].strftime('%Y%m%d%H%M'),
+                                self.timedata[-1].strftime('%Y%m%d%H%M'),
+                                self._sats_for_figname(), self.tag))
+        fig.savefig(outfig, dpi=400)
+        plt.close(fig)
+        self.log.debug('Plotted {}'.format(outfig))
 
 
 
