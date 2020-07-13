@@ -498,12 +498,17 @@ class ISMRplot():
         sphere = ccrs.PlateCarree(globe=ccrs.Globe(datum='WGS84',
                                                    ellipse='sphere'))
 
-        midpoint = constants.TOPO[self.config['location']]
+        midpoint = constants.TOPO[self.config['location']] # (17.62048, -63.24323),
         fig = plt.figure()
+        # ax = plt.axes()
+
         ax = plt.axes(projection=ccrs.PlateCarree())
 
-        lon0, lat0 = midpoint
-        extent = ( lat0 -5., lat0 + 5., lon0 - 5., lon0 + 5.)
+        lat0, lon0 = midpoint
+        extent = ( lat0 -15., lat0 + 15., lon0 - 15., lon0 + 15.)
+        # lon0, lat0 = midpoint
+        extent = ( lon0 -15., lon0 + 15., lat0 - 15., lat0 + 15.)
+        self.log.debug('Extent of axes: {}'.format(extent))
         ax.set_extent(extent, crs=ccrs.PlateCarree())
         ax.coastlines(resolution='50m', color='black', linewidth=1)
         gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
@@ -511,8 +516,9 @@ class ISMRplot():
         gl.xlabels_top = False
         gl.ylabels_right = False
 
-        lats, lons = lib.tools.azel_to_latlon(self.vardata['azimuth'], self.vardata['elevation'],
-                                              point=midpoint, height=3.e5)
+        plotheight = 200. # km
+        lons, lats = lib.tools.azel_to_latlon(self.vardata['azimuth'], self.vardata['elevation'],
+                                              point=midpoint, height=plotheight)
         self.log.debug('Lats: {}-{}, \nLons: {}-{}'.format(np.nanmin(lats), np.nanmax(lats),
                                                             np.nanmin(lons), np.nanmax(lons)))
         plotdata = self.vardata[var]
@@ -524,13 +530,15 @@ class ISMRplot():
             self.log.debug(lats)
             self.log.debug(lons)
             self.log.debug(plotdata)
+        ax.scatter(lon0, lat0, s=130, c='r', marker='*')
         azel = ax.scatter(lons, lats, s=30, c=plotdata, vmin=minval, vmax=maxval,
-                        cmap=plt.cm.get_cmap(self.cmap), #linewidths=0, edgecolors=None,
+                        cmap=plt.cm.get_cmap(self.cmap), alpha=0.7, linewidths=0, edgecolors=None,
                         )
 
         ax.set_xlabel('Longitude [deg]')
         ax.set_ylabel('Latitude [deg]')
-        ax.set_title('Tracks: {}'.format(var))
+        ax.set_title('Tracks: {} for satellites {} at {:.1f} km, \nperiod {} - {}'.format(var, self._sats_for_figname(),
+                                plotheight, self.timedata[0].strftime('%Y%m%d%H%M'), self.timedata[-1].strftime('%Y%m%d%H%M')))
         cb = fig.colorbar(azel, ax=ax)
         cb.set_label('{} [units]'.format(var))
         outfig = os.path.join(self.config['outputdir'],

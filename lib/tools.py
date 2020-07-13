@@ -139,7 +139,7 @@ def azel_to_xy(azimuth, elevation, h=None):
 
     return x,y
 
-def azel_to_latlon(azimuth, elevation, point=TOPO['SABA'], height=300):
+def azel_to_latlon(azimuth, elevation, point=TOPO['SABA'], height=300.e3):
     '''
         Compute latitude longitude from azimuth and elevation angle
         and height in km
@@ -148,8 +148,8 @@ def azel_to_latlon(azimuth, elevation, point=TOPO['SABA'], height=300):
         distance from a certain latlon-point lat and lon.
     '''
     relx, rely = azel_to_xy(azimuth, elevation, h=height)
-    lat_angle = point[0] + np.arctan2(rely, R_earth)
-    lon_angle = point[1] + np.arctan2(relx, R_earth)
+    lat_angle = point[0] + (360./2*np.pi) * np.arctan2(rely, 1.e0 * R_earth)
+    lon_angle = point[1] + (360./2*np.pi) * np.arctan2(relx, 1.e0 * R_earth)
     # result_df['lat'] = lat_angle
     # result_df['lon'] = lon_angle
 
