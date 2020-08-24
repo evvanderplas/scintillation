@@ -4,13 +4,15 @@
   'plot_type': 'map',
   'colorby': 'SVID',
   'histogram': True,
-  'startdate': [2020,5,1,0,0,0],
-  'enddate': [2020,5,2,0,0,0],
+  'startdate': [2020,8,2,0,0,0],
+  'enddate':   [2020,8,4,0,0,0],
   # 'enddate': [2020,2,25,0,0,0],
   'location': 'SABA',
   # 'location': 'SEUT',
-  'satellites': [3,4,5,6,7,8,9,10,11], # single GPS satellite
+  # 'satellites': [3,4,5,6,7,8,9,10,11], # single GPS satellite
+  'satellites': 'gps', # single GPS satellite
   # 'histbins': [500, [-150,150,201]],
   # 'yrange': [-100., 200.],
+  'restrictions': {'elevation': {'min': 25., 'max': None}},
   'outputdir': './plots/map'
 }

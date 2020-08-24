@@ -64,7 +64,7 @@ def read_confdate(dlist):
 
     return readdate
 
-def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_data', log=logging):
+def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, restrict_crit=None, table='sep_data', log=logging):
     '''
         Get data from SQLite database
     '''
@@ -102,6 +102,9 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, table='sep_dat
     if tstart is not None:
         sqltime = 'timestamp BETWEEN {} and {}'.format(timestart, timeend)
         sql_crit.append(sqltime)
+
+    if restrict_crit is not None:
+        sql_crit.extend(restrict_crit)
 
     log.debug('Criteria: {}'.format(sql_crit))
     sql_stat += ' AND '.join(sql_crit)

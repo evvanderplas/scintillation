@@ -131,6 +131,7 @@ class ISMRplot():
         else:
             svid = None
 
+        # make a list of the possible data you might need:
         if ('plotdata' not in self.config) or self.config['plotdata'] is None:
             query_start = time.time()
             vars = self.config['plot_var']
@@ -158,9 +159,35 @@ class ISMRplot():
                     vars.insert(-1, geovar)
                     nrvars += 1
 
+            # see if the query should be restricted somehow:
+            # idea is that a variable can be given with a min and a max
+            # more advanced queries: maybe later:
+            restrict_list = []
+            if 'restrictions' in self.config:
+                for rvar in self.config['restrictions']:
+                    if rvar in total_vars:
+                        if 'min' in self.config['restrictions'][rvar]:
+                            rmin = self.config['restrictions'][rvar]['min']
+                            if rmin == 'None':
+                                pass
+                            else:
+                                restrict_list.append('{} > {}'.format(rvar, rmin))
+                        else:
+                            rmin = None
+                        if 'max' in self.config['restrictions'][rvar]:
+                            rmax = self.config['restrictions'][rvar]['max']
+                            if rmax == 'None':
+                                pass
+                            else:
+                                restrict_list.append('{} < {}'.format(rvar, rmax))
+                        else:
+                            rmax = None
+            if restrict_list == []:
+                restrict_list = None
+
             plotdata = get_sqlite_data(req_list, self.ismrdb, table=tabname,
-                                       svid=svid,
-                                       tstart=tstart, tend=tend, log=log)
+                                       svid=svid, tstart=tstart, tend=tend,
+                                       restrict_crit=restrict_list, log=log)
             query_end = time.time()
             self.log.debug('Query took {:.3f} seconds'.format(query_end - query_start))
 
@@ -275,14 +302,12 @@ class ISMRplot():
 
         if xvar is None:
             xname = vars[0]
-            # self.log.debug('X data: {}'.format(xname))
             xdata = self.vardata[xname]
         elif xvar == 'timeofday':
             xdata = self.timeofday
             xname = 'timeofday'
         if yvar is None:
             yname = vars[1]
-            # self.log.debug('X data: {}'.format(yname))
             ydata = self.vardata[yname]
         else:
             try:
@@ -317,7 +342,6 @@ class ISMRplot():
                 histbins_x, histbins_y = histbins_conf
                 # check if it is a number or an attempt to define an array:
                 for idx, histb in enumerate(histbins_conf): #(histbins_x, histbins_y):
-                    # print('Looking at histbins: {}'.format(histb))
                     if idx > 1:
                         break # do not consider strangely formatted bins
                     if not isinstance(histb, (list, tuple, np.ndarray)):
@@ -328,7 +352,7 @@ class ISMRplot():
                         elif len(histb) == 3:
                             histbins_conf[idx] = np.linspace(histb[0], histb[1], histb[2])
                 histbins = histbins_conf
-                # print('Were the histbins changed? {}'.format(histbins))
+
             else:
                 histbins = [histbins_conf, histbins_conf]
         else:
@@ -344,7 +368,7 @@ class ISMRplot():
         return histbins
 
 
-    def scatterplot(self, xvar=None, yvar=None, colorby=None):
+    def scatterplot(self, xvar=None, yvar=None, colorby=None, cmap='hsv'):
         '''
             make a scatterplot
         '''
@@ -356,7 +380,7 @@ class ISMRplot():
         if not colorby:
             ax.scatter(xdata, ydata, c=colors, edgecolors='none')
         else:
-            ax.scatter(xdata, ydata, c=colors, cmap='hsv', alpha=0.5, edgecolors='none')
+            ax.scatter(xdata, ydata, c=colors, cmap=cmap, alpha=0.5, edgecolors='none')
         ax.set_xlabel(xname)
         ax.set_ylabel(yname)
         title = '{} vs {}'.format(yname, xname)
@@ -365,7 +389,6 @@ class ISMRplot():
         title += ' from {} - {}'.format(self.config['startdt'].strftime('%Y-%m-%d'),
                                         self.config['enddt'].strftime('%Y-%m-%d'))
         ax.set_title(title)
-
 
         plotfile = os.path.join(self.config['outputdir'],
                             'scatter_{}-{}_{}_{}-{}_sat_{}_{}.png'.format(xname, yname,
@@ -388,10 +411,10 @@ class ISMRplot():
         for checkvar in self.vardata.keys():
             self.log.debug('Var {}: {} or {}'.format(checkvar, self.vardata[checkvar].shape,
                                 self.nanvar.shape))
-        # for var in self.vardata.keys():
-        #     self.log.debug('Var {}: {}'.format(var, np.sum(np.isnan(self.vardata[var]))))
 
         self.log.debug('Hist data min, max: {} - {}'.format(np.min(self.vardata[var]), np.max(self.vardata[var])))
+
+        # ================================
         # 1D histogram
         fig, ax = plt.subplots()
         _nrbins, _bins, _patches = ax.hist(self.vardata[var], bins=50, normed=1, facecolor='green', alpha=0.75)
@@ -409,10 +432,11 @@ class ISMRplot():
         fig.savefig(plotfile)
         plt.close(fig)
 
+        # ================================
         # 2D histogram
         fig, ax = plt.subplots()
 
-        # make sure the information passed on about the hostograms is properly implemented
+        # make sure the information passed on about the histograms is properly implemented
         histbins = self._interpret_histogram_bins(var)
         # self.log.debug('Bins for 2D histogram: {}'.format(histbins))
 
@@ -434,8 +458,6 @@ class ISMRplot():
         ax.set_xticklabels([dtlab.strftime('%Y-%m-%d') for dtlab in dtlabels])
         ax.set_xlabel('Time (binned)')
 
-        # ax.hist2d(timedata, vardata, bins=[150, 50], norm=LogNorm())
-
         fig.autofmt_xdate()
         ax.set_title('Histogram as a function of time of {} at {}'.format(var, self.config['location']))
 
@@ -449,10 +471,11 @@ class ISMRplot():
         fig.savefig(plotfile)
         plt.close(fig)
 
+        # ================================
         # 2D histogram time_of_day
         fig, ax = plt.subplots()
 
-        # make sure the information passed on about the hostograms is properly implemented
+        # make sure the information passed on about the histograms is properly implemented
         histbins_tod = [24, histbins[1]]
         houroftheday = np.array([t.hour for t in self.timedata])
         ax.hist2d(houroftheday, self.vardata[var], bins=histbins_tod, norm=LogNorm())
@@ -467,12 +490,7 @@ class ISMRplot():
         # draw a red line where the zero should be:
         ax.axhline(y=0, color='red', linestyle='-', alpha=0.4)
 
-        # xlocs = ax.get_xticks()
-        # ax.set_xticks(xlocs) # unnecessary?
-        # dtlabels = [dt.datetime.fromtimestamp(tlab) for tlab in xlocs]
-        # ax.set_xticklabels([dtlab.strftime('%Y-%m-%d') for dtlab in dtlabels])
         ax.set_xlabel('Time of day (binned)')
-
         fig.autofmt_xdate()
         ax.set_title('Histogram as a function of time of day for {} at {}'.format(var, self.config['location']))
 
@@ -490,7 +508,7 @@ class ISMRplot():
 
     def geo_plot(self, var):
         '''
-            Plot the data on a map
+            Plot the GNSS data on a map
         '''
         if self.vardata is None:
             vardata = self._prepare_data()
@@ -500,14 +518,13 @@ class ISMRplot():
 
         midpoint = constants.TOPO[self.config['location']] # (17.62048, -63.24323),
         fig = plt.figure()
-        # ax = plt.axes()
 
+        # choose a projection
         ax = plt.axes(projection=ccrs.PlateCarree())
 
+        # cut out the right part of the map:
         lat0, lon0 = midpoint
-        extent = ( lat0 -15., lat0 + 15., lon0 - 15., lon0 + 15.)
-        # lon0, lat0 = midpoint
-        extent = ( lon0 -15., lon0 + 15., lat0 - 15., lat0 + 15.)
+        extent = ( lon0 -25., lon0 + 25., lat0 - 20., lat0 + 20.)
         self.log.debug('Extent of axes: {}'.format(extent))
         ax.set_extent(extent, crs=ccrs.PlateCarree())
         ax.coastlines(resolution='50m', color='black', linewidth=1)
@@ -516,6 +533,9 @@ class ISMRplot():
         gl.xlabels_top = False
         gl.ylabels_right = False
 
+        # the plotheight is a measure of where one would estimate the scintillation to
+        # occur. The signal is measured at the earth's surface, the satellites are at
+        # approximately 20.000 km height (Medium Earth Orbit, MEO).
         plotheight = 200. # km
         lons, lats = lib.tools.azel_to_latlon(self.vardata['azimuth'], self.vardata['elevation'],
                                               point=midpoint, height=plotheight)
@@ -526,11 +546,10 @@ class ISMRplot():
         maxval = np.nanpercentile(plotdata, 95.)
         self.log.debug('Plotdata {}: plot {} to {} \n{}'.format(var, minval, maxval, plotdata[:30]))
 
-        if var == 'sig1_TEC':
-            self.log.debug(lats)
-            self.log.debug(lons)
-            self.log.debug(plotdata)
+        # indicate the receiver station
         ax.scatter(lon0, lat0, s=130, c='r', marker='*')
+
+        # the actual plotting:
         azel = ax.scatter(lons, lats, s=30, c=plotdata, vmin=minval, vmax=maxval,
                         cmap=plt.cm.get_cmap(self.cmap), alpha=0.7, linewidths=0, edgecolors=None,
                         )
@@ -547,7 +566,7 @@ class ISMRplot():
                                 self.timedata[0].strftime('%Y%m%d%H%M'),
                                 self.timedata[-1].strftime('%Y%m%d%H%M'),
                                 self._sats_for_figname(), self.tag))
-        fig.savefig(outfig, dpi=400)
+        fig.savefig(outfig, dpi=100)
         plt.close(fig)
         self.log.debug('Plotted {}'.format(outfig))
 

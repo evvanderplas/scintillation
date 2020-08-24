@@ -37,7 +37,7 @@ def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH, verb=False):
     ftph = ftplib.FTP(host=FTPHOST, user=FTPUSER, passwd=FTPWW)
     ftph.cwd('../IONO')
     for site in SITES:
-        if 1: #try:
+        if 1: # try:
             ftph.cwd(site)
             avail_dirs = sorted([item for item in ftph.nlst() if item.isdigit()])
             print(avail_dirs)
