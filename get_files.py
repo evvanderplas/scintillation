@@ -24,8 +24,9 @@ def last_downloaded_file(archpath=TROPDATAPATH):
         datapath = os.path.join(archpath, 'IONO', site)
         dirs = sorted([os.path.split(yyw[0])[-1] for yyw in os.walk(datapath)
                        if os.path.split(yyw[0])[-1].isdigit()])
-        print('{}: {}'.format(site, dirs))
+        # print('{}: {}'.format(site, dirs))
         last_dir[site] = dirs[-1]
+        print('Latest dir already ingested ({}): {}'.format(site, last_dir[site]))
 
     return last_dir
 
@@ -45,6 +46,9 @@ def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH, verb=False):
             # for now
             for dailydir in avail_dirs:
                 # lastdir = avail_dirs[-1]
+                if int(dailydir) < int(localdirs[site]):
+                    print('Should have been ingested already: {} < {}'.format(dailydir, localdirs[site]))
+                    continue # TODO: new, check carefully if no files are forgotten!
                 ftph.cwd(dailydir)
                 localdir = os.path.join(archpath, 'IONO', site, dailydir)
                 if os.path.isdir(localdir):
@@ -52,9 +56,9 @@ def get_dir(localdirs, remotedirs, archpath=TROPDATAPATH, verb=False):
                         print('>>>>> Already a directory! {}'.format(localdir))
                 try:
                     os.makedirs(localdir)
+                    print('Made {}'.format(localdir))
                 except FileExistsError as ferr:
                     print('No need to create {} ({})'.format(localdir, ferr))
-                print('Made {}'.format(localdir))
                 # ftplisting = ftph.nlst()
                 # for item in ftplisting:
                 #     print('{}: {}'.format(item, os.path.splitext(item)))

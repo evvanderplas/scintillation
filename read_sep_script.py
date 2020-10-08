@@ -44,7 +44,7 @@ def main():
             for (dirname, dirs, files) in os.walk(data_dir, topdown=True):
                 dirs.sort(reverse=True)
                 print('Walkdir: dirname: {} dirs: {}, files {}'.format(dirname, dirs, files))
-                for file in files:
+                for file in sorted(files, reverse=True):
                     print('Reading dirname {} with file {}'.format(dirname, os.path.splitext(file)))
                     if not os.path.splitext(file)[1] == '.ismr':
                         continue
