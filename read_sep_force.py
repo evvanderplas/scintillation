@@ -16,6 +16,27 @@ data_location = '/data/storage/trop/users/plas/SW/IONO'
 scint_locations = ['SABA','SEUT']
 db_location = '/data/storage/trop/users/plas/SW/'
 
+def ingest_dir(readdir, instrument_location, target_db):
+    '''
+    '''
+
+    exclude = set(['CAL'])
+    for (dirname, dirs, files) in os.walk(readdir):
+        dirs[:] = [d for d in dirs if d not in exclude]
+        for file in sorted(files, reverse=True):
+            print('Reading dirname {} with file {}'.format(dirname, os.path.splitext(file)))
+            if not os.path.splitext(file)[1] == '.ismr':
+                continue
+            infile = os.path.join(dirname, file)
+            if instrument_location in dirname:
+                ismr_dataframe = read_ismr.read_reduced_ismr(infile)
+                if ismr_dataframe.shape[0] == 0:
+                    continue
+
+                written = read_ismr.write_to_reduced_sqlite(ismr_dataframe, dbname=target_db,
+                                                            loc=instrument_location)
+
+
 def read_forced(indir, log, loc='all'):
     '''
         Read the actual data from the ISMR
@@ -30,28 +51,31 @@ def read_forced(indir, log, loc='all'):
         data_dir = os.path.join(data_location, instrument_location)
         print('Walking directory tree {}'.format(data_dir))
 
-        # full database, not used
-        ismrdb = os.path.join(db_location, 'scint_new_{}.db'.format(instrument_location))
-        print('Writing to {}'.format(ismrdb))
+        # # full database, not used
+        # ismrdb = os.path.join(db_location, 'scint_new_{}.db'.format(instrument_location))
+        # print('Writing to {}'.format(ismrdb))
 
-        # reduced database
-        ismr_red_db = os.path.join(db_location, 'scint_reduced_{}.db'.format(instrument_location))
-        print('Writing to reduced {}'.format(ismr_red_db))
+        # NB TEMP!
+        # # reduced database
+        # ismr_red_db = os.path.join(db_location, 'scint_reduced_{}.db'.format(instrument_location))
+        # print('Writing normal to reduced {}'.format(ismr_red_db))
+        #
+        # ismr_cal_db = os.path.join(db_location, 'scint_reduced_{}.db'.format(instrument_location))
+        # print('Writing cal to reduced {}'.format(ismr_cal_db))
+
+        # TODO: reduced database TEST!
+        ismr_red_db = os.path.join(db_location, 'scint_reduced_{}_test.db'.format(instrument_location))
+        print('Writing normal to reduced {}'.format(ismr_red_db))
+
+        ismr_cal_db = os.path.join(db_location, 'scint_reduced_{}_test.db'.format(instrument_location))
+        print('Writing cal to reduced {}'.format(ismr_cal_db))
+        #  end todo
 
         readdir = os.path.join(data_location, instrument_location, indir)
-        for (dirname, dirs, files) in os.walk(readdir):
-            for file in sorted(files, reverse=True):
-                print('Reading dirname {} with file {}'.format(dirname, os.path.splitext(file)))
-                if not os.path.splitext(file)[1] == '.ismr':
-                    continue
-                infile = os.path.join(dirname, file)
-                if instrument_location in dirname:
-                    ismr_dataframe = read_ismr.read_reduced_ismr(infile)
-                    if ismr_dataframe.shape[0] == 0:
-                        continue
+        ingest_dir(readdir, instrument_location, ismr_red_db)
 
-                    written = read_ismr.write_to_reduced_sqlite(ismr_dataframe, dbname=ismr_red_db,
-                                                        loc=instrument_location)
+        readdir = os.path.join(data_location, instrument_location, 'CAL', indir)
+        ingest_dir(readdir, instrument_location, ismr_cal_db)
 
 
 def find_directory_for_date(indate, log):
@@ -79,10 +103,14 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("date", help="date for which reading into the db is forced, YYYYMMDD")
+    # parser.add_argument("location", help="location of the instrument")
+    parser.add_argument("-l", "--location", type=str, choices=['SABA', 'SEUT', 'all'],
+                        default='all', help="optional: give location for the forced ingestion")
+
     args = parser.parse_args()
     logger.debug('Read date {}'.format(args.date))
     readdir = find_directory_for_date(args.date, logger)
-    read_forced(readdir, logger, loc='all')
+    read_forced(readdir, logger, loc=args.location)
 
 if __name__ == '__main__':
     main()
