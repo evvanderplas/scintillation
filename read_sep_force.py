@@ -18,6 +18,7 @@ db_location = '/data/storage/trop/users/plas/SW/'
 
 def ingest_dir(readdir, instrument_location, target_db):
     '''
+        Ingest a directory of day-of-year directories with hourly ISMR data
     '''
 
     exclude = set(['CAL'])
@@ -67,16 +68,19 @@ def read_forced(indir, log, loc='all'):
         ismr_red_db = os.path.join(db_location, 'scint_reduced_{}_test.db'.format(instrument_location))
         print('Writing normal to reduced {}'.format(ismr_red_db))
 
-        ismr_cal_db = os.path.join(db_location, 'scint_reduced_{}_test.db'.format(instrument_location))
+        ismr_cal_db = os.path.join(db_location, 'scint_reduced_{}_CAL_test.db'.format(instrument_location))
         print('Writing cal to reduced {}'.format(ismr_cal_db))
         #  end todo
 
         readdir = os.path.join(data_location, instrument_location, indir)
+        print('Ingesting the normal files {} to {}'.format(readdir, ismr_red_db))
         ingest_dir(readdir, instrument_location, ismr_red_db)
 
         readdir = os.path.join(data_location, instrument_location, 'CAL', indir)
+        print('Ingesting the calibration files {} to {}'.format(readdir, ismr_cal_db))
         ingest_dir(readdir, instrument_location, ismr_cal_db)
 
+    return 'done'
 
 def find_directory_for_date(indate, log):
     '''

@@ -65,7 +65,7 @@ class ISMRplot():
 
     def _complete_config(self, configfile):
         '''
-            Read some complementary stuff form a local.yaml file
+            Read some complementary stuff from a local.yaml file
             such as which database to use etc: not something you want for each plot
         '''
 
@@ -74,6 +74,13 @@ class ISMRplot():
 
         # read what plot(s) to make
         self.config = read_yaml(configfile)
+
+        # override local.yaml if the database is set in the specific yaml
+        if 'ismrdb_path' in self.config:
+            dbconfig['ismrdb_path'] = self.config['ismrdb_path']
+        if 'ismrdb_name' in self.config:
+            dbconfig['ismrdb_name'] = self.config['ismrdb_name']
+            
         self.ismrdb = os.path.join(dbconfig['ismrdb_path'], dbconfig['ismrdb_name'].format(self.config['location']))
         self.log.debug('Reading from database {}'.format(self.ismrdb))
 
@@ -104,6 +111,7 @@ class ISMRplot():
             'qzss': np.arange(180,188)
         }
 
+        # self.log.debug('Interpreting: {}: {}'.format(self.config['satellites'], SATRANGE[self.config['satellites'].lower()]))
         if isinstance(self.config['satellites'], str):
             if self.config['satellites'].lower() in SATRANGE.keys():
                 return SATRANGE[self.config['satellites'].lower()]
@@ -272,11 +280,14 @@ class ISMRplot():
             Decide how to indicate for which sats the figure was made
         '''
         sats = self.config['satellites']
-        if len(list(sats)) == 1:
+        self.log.debug('For figname: satellites: {}'.format(sats))
+        if len(list(sats)) == 1: # only one
             return str(list(sats)[0])
-        elif len(list(sats)) < 4:
+        elif str(sats).isalpha(): # it is a shortcut for a range of satellites
+            return str(sats)
+        elif len(list(sats)) < 4: # a few numbers:
             return '_'.join([str(s) for s in list(sats)])
-        else:
+        else: # a long list of numbers
             smin, smax = np.min(list(sats)), np.max(list(sats))
             return '{}-{}'.format(smin, smax)
 
