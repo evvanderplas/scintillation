@@ -9,8 +9,8 @@
   # 'enddate': [2020,2,25,0,0,0],
   'location': 'SABA',
   # 'location': 'SEUT',
-  'satellites': [3,4,5,6,7,8,9,10,11], # single GPS satellite
+  'satellites': 'gps', # all GPS satellite
   # 'histbins': [500, [-150,150,201]],
   # 'yrange': [-100., 200.],
-  'outputdir': './plots/scatter'
+  'outputdir': './gps_s4tec/gps'
 }

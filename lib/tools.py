@@ -158,6 +158,24 @@ def azel_to_latlon(azimuth, elevation, point=TOPO['SABA'], height=300.e3):
 
     return deg_to_lon(lon_angle), lat_angle
 
+def _sats_for_figname(sats, log=logging):
+    '''
+        Decide how to indicate for which sats the figure was made
+    '''
+    self.log.debug('For figname: satellites: {}'.format(sats))
+    if isinstance(sats, str): # not str(sats).isdigit(): # might contain "unknown" or something
+        return sats
+    elif len(list(sats)) == 1: # only one
+        return str(list(sats)[0])
+    elif str(sats).isalpha(): # it is a shortcut for a range of satellites
+        return str(sats)
+    elif len(list(sats)) < 4: # a few numbers:
+        return '_'.join([str(s) for s in list(sats)])
+    else: # a long list of numbers
+        smin, smax = np.min(list(sats)), np.max(list(sats))
+        return '{}-{}'.format(smin, smax)
+
+
 if __name__ == '__main__':
 
     print('tools')

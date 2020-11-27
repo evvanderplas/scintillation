@@ -4,9 +4,11 @@
 '''
 
 
-
+# names necessary to determine unique signals
 HEADER_NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue']
 #NAMES = ['weeknumber', 'timeofweek', 'SVID', 'fieldblockvalue',
+
+# all names of the fields in the ISMR data:
 NAMES = ['azimuth', 'elevation',
          'sig1_CNO_avg_min', 'sig1_S4', 'sig1_S4_corr', 'sig1_phi01', 'sig1_phi03', 'sig1_phi10', 'sig1_phi30', 'sig1_phi60',
          'sig1_avgccd', 'sig1_sigmaccd',
@@ -29,13 +31,17 @@ NAMES = ['azimuth', 'elevation',
          'sig1_T', 'sig2_T', 'sig3_T'
          ]
 
+# names of the fiels  for the reduced database
 REDUCED_NAMES = ['azimuth', 'elevation', 'sig1_TEC',
                  'sig1_S4', 'sig1_S4_corr',
                  'sig2_S4', 'sig2_S4_corr',
                  'sig3_S4', 'sig3_S4_corr',]
 
+# locations of the septentrio GNSS receivers on Saba and St Eustatius:
 TOPO = {
         'SABA': (17.62048, -63.24323),
         'SEUT': (17.47140, -62.97570),
         }
+
+# radius of the Earth
 R_earth = 6378.100   # km

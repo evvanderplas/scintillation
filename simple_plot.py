@@ -54,12 +54,27 @@ class ISMRplot():
             self.scatterplot(xvar='timeofday', yvar=var2)
 
         elif self.config['plot_type'] == 'map':
+
             for mapvar in self.config['plot_var']:
-                self.geo_plot(mapvar)
+                self.log.debug('Map: Plot: {}'.format(mapvar))
+            self.log.debug('From {} till {}'.format(self.config['startdt'], self.config['enddt']))
+            # return
+
+            for mapvar in self.config['plot_var']:
+                if mapvar in ('azimuth', 'elevation'):
+                    pass
+                else:
+                    self.geo_plot(mapvar)
 
         if 'histogram' in self.config and self.config['histogram']:
+
+            for mapvar in self.config['plot_var']:
+                self.log.debug('Histogram: Plot: {}'.format(mapvar))
+            self.log.debug('From {} till {}'.format(self.config['startdt'], self.config['enddt']))
+            # return
+
             for var in self.config['plot_var']:
-                self.tag = 'somerange'
+                self.tag = self.config['tag']
                 self.log.debug('Histogram of {}'.format(var))
                 self.hist_plot(var)
 
@@ -80,7 +95,7 @@ class ISMRplot():
             dbconfig['ismrdb_path'] = self.config['ismrdb_path']
         if 'ismrdb_name' in self.config:
             dbconfig['ismrdb_name'] = self.config['ismrdb_name']
-            
+
         self.ismrdb = os.path.join(dbconfig['ismrdb_path'], dbconfig['ismrdb_name'].format(self.config['location']))
         self.log.debug('Reading from database {}'.format(self.ismrdb))
 

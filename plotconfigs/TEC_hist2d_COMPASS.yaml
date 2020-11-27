@@ -1,0 +1,17 @@
+# configuration file for a plots
+{
+  'plot_var': 'sig1_TEC',
+  'plot_type': 'hist2d',
+  'startdate': [2018,5,4,0,0,0],
+  'enddate': [2018,9,27,0,0,0],
+  # 'enddate': [2020,2,25,0,0,0],
+  'location': 'SABA',
+  # 'location': 'SEUT',
+  'satellites': [141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153,
+                 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166,
+                 167, 168, 169, 170, 171, 172],
+  # 'satellites': [38, 39, 40, 41, 42, 43],
+  'histbins': [500, [-50,150,201]],
+  'yrange': [-50., 150.],
+  'outputdir': './plots'
+}

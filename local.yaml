@@ -4,6 +4,7 @@
       # 'ismrdb_path': '/Users/plas/data/SW'
       # 'ismrdb_name': 'test_scint_new_{}.db',
       # 'ismrdb_name': 'scint_new_{}.db',
-      'ismrdb_name': 'scint_reduced_{}.db',
+      # 'ismrdb_name': 'scint_reduced_{}.db',
+      'ismrdb_name': 'scint_reduced_{}_CAL_test.db',
       'tabname': 'sep_data_{}'
 }

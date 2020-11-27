@@ -1,0 +1,14 @@
+# configuration file for a plots
+{
+  'plot_var': 'sig1_TEC',
+  'plot_type': 'hist2d',
+  'startdate': [2019,6,1,0,0,0],
+  'enddate': [2019,10,1,0,0,0],
+  # 'enddate': [2020,2,25,0,0,0],
+  'location': 'SABA',
+  # 'location': 'SEUT',
+  'satellites': [],
+  'histbins': [500, [-150,150,201]],
+  'yrange': [-100., 200.],
+  'outputdir': './plots/calibration'
+}
