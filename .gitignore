@@ -1,0 +1,17 @@
+# git ignore file for septentrio repository
+
+# compiled python
+*.pyc
+
+# figures
+*.png
+*/*.png
+*/*/*.png
+
+# logs
+*.log
+
+# Windows
+Thumbs.db
+*/Thumbs.db
+*/*/Thumbs.db

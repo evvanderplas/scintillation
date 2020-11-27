@@ -1,0 +1,24 @@
+{
+  # 'plot_var': ['sig1_S4', 'sig1_TEC' ],
+  'tag': 'active_202010',
+  'clim': {
+      'startdate': [2020,7,1,0,0,0],
+      'enddate':   [2020,9,1,0,0,0],
+    },
+  'startdate': [2020,10,30,0,0,0],
+  'enddate':   [2020,11,6,0,0,0],
+  'location': 'SEUT',
+  # 'satellites': [3,4,5,6,7,8,9,10,11], # single GPS satellite
+  'satellites': 'gps', # all GPS satellites
+  # 'satellites': 'galileo', # all GALILEO satellites
+  # 'satellites': 'glonass', # all GLONASS satellites
+  # 'satellites': 'sbas', # all SBAS satellites
+  # 'satellites': 'compass', # all COMPASS satellites
+  # 'satellites': 'qzss', # all QZSS satellites
+  # 'histbins': [500, [-150,150,201]],
+  # 'yrange': [-100., 200.],
+  'ismrdb_path': '/data/storage/trop/users/plas/SW',
+  'ismrdb_name': 'scint_reduced_{}.db',
+  # 'ismrdb_name': 'scint_reduced_{}_CAL_test.db',
+  'outputdir': './plots/no_cal/'
+}

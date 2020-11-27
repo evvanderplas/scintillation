@@ -64,7 +64,42 @@ def read_confdate(dlist):
 
     return readdate
 
-def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, restrict_crit=None, table='sep_data', log=logging):
+def interpret_svid(satellites):
+    '''
+        allow for easier selection of GNSS satellites
+    '''
+    SATRANGE = {
+        'gps': np.arange(1,38),
+        'glonass': np.arange(38,62),
+        'galileo': np.arange(71, 103),
+        'sbas': np.arange(120,141),
+        'compass': np.arange(141, 173),
+        'qzss': np.arange(180,188)
+    }
+
+    # self.log.debug('Interpreting: {}: {}'.format(self.config['satellites'], SATRANGE[self.config['satellites'].lower()]))
+    if isinstance(satellites, str):
+        if satellites.lower() in SATRANGE.keys():
+            return SATRANGE[satellites.lower()]
+    elif isinstance(satellites, (tuple, list, np.array)):
+        return satellites
+    elif '-' in satellites:
+        print('Divination of a range')
+        s1, sl = satellites.split('-')
+        return np.arange(int(s1), int(sl))
+
+def add_hour_of_day(timedata):
+    '''
+        Get the time-of-day for each measurement
+    '''
+    tod = np.zeros_like(timedata)
+    for mt_idx, mtime in enumerate(timedata):
+        tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).seconds/3600.
+    # timeofday = tod
+    return tod
+
+def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None,
+                    restrict_crit=None, table='sep_data', log=logging):
     '''
         Get data from SQLite database
     '''
@@ -116,6 +151,79 @@ def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None, restrict_crit=
     log.debug('Data: {}'.format(data[:20])) # , data[0].shape))
 
     return data
+
+def nice_data(plotdata, vars, nrvars=None, log=logging):
+    '''
+        Make sure that the data does not contain NaN or so
+        output
+    '''
+    if nrvars is None:
+        nrvars = len(vars)
+
+    if not isinstance(nrvars, int) or nrvars != len(plotdata[0]):
+        print('The number of variables in the data from the database should be an integer, not {}'.format(nrvars))
+        sys.exit(0)
+
+    if nrvars == 1:
+        allvardata = np.array([np.float(t[0]) for t in plotdata])
+        nanvar = np.isnan(allvardata)
+        vardata = allvardata[~nanvar]
+        log.debug('Size vardata: {}'.format(vardata.shape))
+    else:
+        vardata = {}
+        timestampdata = np.array([t[-1] for t in plotdata])
+
+        # make two rounds:
+        # first to get all the nan-values, second to get the data:
+        nanvar = np.zeros_like(timestampdata, dtype=bool)
+        for idx_var, multivar in enumerate(vars):
+            allvardata = np.ones(len(plotdata), dtype=np.float)
+            try:
+                # allvardata = np.array([np.float(t[idx_var]) for t in plotdata if not None in t else None])
+                for idx_t, t in enumerate(plotdata):
+                    if None in t or str(t[idx_var]).isalpha():
+                        allvardata[idx_t] = None
+                    else:
+                        allvardata[idx_t] = np.float(t[idx_var])
+            except TypeError as terr:
+                for t in plotdata:
+                    if t[idx_var] is None:
+                        print('{}, idx {}: {} allvars = {}'.format(t, idx_var, multivar, vars))
+                log.error('what went wrong? var {} in {}?: {}'.format(multivar, vars, t))
+                log.error('up to now: {}'.format(allvardata))
+            log.debug('Round {}: # of nans: {}, total {}'.format(idx_var,
+                        np.sum(np.isnan(allvardata)), np.sum(nanvar)))
+            nanvar = np.logical_or(np.isnan(allvardata), nanvar)
+
+        # remember where the NaN's are:
+        nanvar_first = nanvar
+        log.debug('How many nan? {}'.format(np.sum(nanvar_first)))
+
+        # second round:
+        # self.log.debug('Loop over vars: {}, but index over req_list: {}'.format(vars, req_list))
+        for idx_var, multivar in enumerate(vars):
+
+            # allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
+            for idx_t, t in enumerate(plotdata):
+                if None in t or str(t[idx_var]).isalpha():
+                    allvardata[idx_t] = None
+                else:
+                    allvardata[idx_t] = np.float(t[idx_var])
+
+            vardata[multivar] = allvardata[~nanvar]
+            log.debug('Size vardata {}: {}'.format(multivar, vardata[multivar].shape))
+
+    # gamble that the not available data is the same for all vars in the list...
+    timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
+    timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
+    vardata['timeofday'] = add_hour_of_day(timedata)
+
+    # for a next plot(?)
+    # self.vardata = vardata
+    log.debug('Vars: {}, vardata: {}'.format(vars, vardata.keys()))
+    for var in vars:
+        log.debug('Var {}: {}'.format(var, np.sum(np.isnan(vardata[var]))))
+    return vardata
 
 def deg_to_lon(angle):
     '''
