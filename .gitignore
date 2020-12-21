@@ -1,5 +1,8 @@
 # git ignore file for septentrio repository
 
+# ignore credentials
+.git-credentials
+
 # compiled python
 *.pyc
 
@@ -10,6 +13,9 @@
 
 # logs
 *.log
+
+# emacs temp files
+*~
 
 # Windows
 Thumbs.db
