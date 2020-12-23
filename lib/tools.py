@@ -64,6 +64,12 @@ def read_confdate(dlist):
 
     return readdate
 
+def to_timestamp(dt_obj):
+    '''
+        Convert a datetime to a posix timestamp
+    '''
+    return (dt_obj - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+
 def interpret_svid(satellites):
     '''
         allow for easier selection of GNSS satellites
@@ -77,7 +83,7 @@ def interpret_svid(satellites):
         'qzss': np.arange(180,188)
     }
 
-    # self.log.debug('Interpreting: {}: {}'.format(self.config['satellites'], SATRANGE[self.config['satellites'].lower()]))
+    # log.debug('Interpreting: {}: {}'.format(config['satellites'], SATRANGE[config['satellites'].lower()]))
     if isinstance(satellites, str):
         if satellites.lower() in SATRANGE.keys():
             return SATRANGE[satellites.lower()]
@@ -200,7 +206,7 @@ def nice_data(plotdata, vars, nrvars=None, log=logging):
         log.debug('How many nan? {}'.format(np.sum(nanvar_first)))
 
         # second round:
-        # self.log.debug('Loop over vars: {}, but index over req_list: {}'.format(vars, req_list))
+        # log.debug('Loop over vars: {}, but index over req_list: {}'.format(vars, req_list))
         for idx_var, multivar in enumerate(vars):
 
             # allvardata = np.array([np.float(t[idx_var]) for t in plotdata])
@@ -216,10 +222,10 @@ def nice_data(plotdata, vars, nrvars=None, log=logging):
     # gamble that the not available data is the same for all vars in the list...
     timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
     timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
+    vardata['time'] = timedata
     vardata['timeofday'] = add_hour_of_day(timedata)
 
     # for a next plot(?)
-    # self.vardata = vardata
     log.debug('Vars: {}, vardata: {}'.format(vars, vardata.keys()))
     for var in vars:
         log.debug('Var {}: {}'.format(var, np.sum(np.isnan(vardata[var]))))
@@ -270,7 +276,7 @@ def _sats_for_figname(sats, log=logging):
     '''
         Decide how to indicate for which sats the figure was made
     '''
-    self.log.debug('For figname: satellites: {}'.format(sats))
+    log.debug('For figname: satellites: {}'.format(sats))
     if isinstance(sats, str): # not str(sats).isdigit(): # might contain "unknown" or something
         return sats
     elif len(list(sats)) == 1: # only one

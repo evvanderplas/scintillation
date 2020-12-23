@@ -45,7 +45,7 @@ def main(configfile):
 
     log.debug('Read config: {}'.format(config))
 
-    # Here, take the header, the S4 and TEC and the timestamp: 
+    # Here, take the header, the S4 and TEC and the timestamp:
     req_list = constants.HEADER_NAMES + ['sig1_S4', 'sig1_TEC', 'timestamp']
     query_start = time.time()
     rawdata = tools.get_sqlite_data(req_list, config['ismrdb'], table=tabname,
@@ -58,7 +58,17 @@ def main(configfile):
     fulldata = tools.nice_data(rawdata, req_list, log=log)
 
     log.info('Create a mean signal and its excursions')
+    pdict = {
+        'satellites': svid, # which satellites
+        'location': loc,
+        'startdt': config['startdt'],
+        'enddt': config['enddt'],
+        'tag': 'first_test_hist',
+    }
 
+    lib.scintplots.hist2D_plot(fulldata['timestamp'], 'time', fulldata['sig1_TEC'], 'TEC',
+                               200, 50, xrange=None, yrange=None,
+                               tagdict={}, outdir= './plots/clim', log=log)
 
 if __name__ == '__main__':
 
