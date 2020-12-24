@@ -64,11 +64,12 @@ def read_confdate(dlist):
 
     return readdate
 
-def to_timestamp(dt_obj):
+def to_timestamp(sdt):
     '''
-        Convert a datetime to a posix timestamp
+        Convert a datetime (sdt) to a posix timestamp
     '''
     return (dt_obj - np.datetime64('1970-01-01T00:00:00Z')) / np.timedelta64(1, 's')
+
 
 def interpret_svid(satellites):
     '''
@@ -98,11 +99,22 @@ def add_hour_of_day(timedata):
     '''
         Get the time-of-day for each measurement
     '''
-    tod = np.zeros_like(timedata)
+    tod = np.zeros_like(timedata, dtype=np.float)
     for mt_idx, mtime in enumerate(timedata):
-        tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).seconds/3600.
-    # timeofday = tod
+        tod[mt_idx] = (mtime - dt.datetime(mtime.year, mtime.month, mtime.day, 0,0,0,0)).total_seconds()/3600.
+    print(tod)
     return tod
+
+def add_second_of_day(timedata):
+    '''
+        Give the second in the day of a certain datetime
+    '''
+    sod = np.zeros_like(timedata, dtype=np.float)
+    for idx, sdt in enumerate(timedata):
+        timedelta = sdt - dt.datetime(sdt.year, sdt.month, sdt.day, 0,0,0)
+        sod[idx] = timedelta.total_seconds()
+    print(sod)
+    return sod
 
 def get_sqlite_data(varlist, db, svid=12, tstart=None, tend=None,
                     restrict_crit=None, table='sep_data', log=logging):
@@ -219,16 +231,28 @@ def nice_data(plotdata, vars, nrvars=None, log=logging):
             vardata[multivar] = allvardata[~nanvar]
             log.debug('Size vardata {}: {}'.format(multivar, vardata[multivar].shape))
 
-    # gamble that the not available data is the same for all vars in the list...
-    timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
-    timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
-    vardata['time'] = timedata
-    vardata['timeofday'] = add_hour_of_day(timedata)
+    # # gamble that the not available data is the same for all vars in the list...
+    # timestampdata = np.array([t[-1] for t in plotdata])[~nanvar]
+    # timedata = np.array([dt.datetime.fromtimestamp(t[-1]) for t in plotdata])[~nanvar]
+    # vardata['time'] = timedata
+    # vardata['timeofday'] = add_hour_of_day(timedata)
 
     # for a next plot(?)
     log.debug('Vars: {}, vardata: {}'.format(vars, vardata.keys()))
     for var in vars:
         log.debug('Var {}: {}'.format(var, np.sum(np.isnan(vardata[var]))))
+    return vardata
+
+def add_timedata(vardata):
+    '''
+        Add datetime objects instead of just timestamps
+    '''
+    # gamble that the not available data is the same for all vars in the list...
+    timedata = np.array([dt.datetime.fromtimestamp(t) for t in vardata['timestamp']])
+    vardata['time'] = timedata
+    vardata['timeofday'] = add_hour_of_day(timedata)
+    vardata['secondofday'] = add_second_of_day(timedata)
+
     return vardata
 
 def deg_to_lon(angle):

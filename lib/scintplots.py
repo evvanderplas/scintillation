@@ -80,8 +80,8 @@ def hist2D_plot(xdata, xname, ydata, yname, xbins, ybins, xrange=None, yrange=No
         ymin, ymax = yrange
         ax.set_ylim(ymin, ymax)
     else:
-        ax.set_ylim(np.nanmin([0., 1.3 * np.nanpercentile(ydata, 2.)]),
-                    np.nanmax([1.3 * np.nanpercentile(ydata, 98.)]) )
+        ax.set_ylim(np.nanmin([0., 1.8 * np.nanpercentile(ydata, 2.)]),
+                    np.nanmax([1.8 * np.nanpercentile(ydata, 98.)]) )
 
     # draw a red line where the zero should be:
     ax.axhline(y=0, color='red', linestyle='-', alpha=0.4)

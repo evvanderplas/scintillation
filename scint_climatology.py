@@ -55,7 +55,11 @@ def main(configfile):
     query_end = time.time()
     log.debug('Query took {:.3f} seconds'.format(query_end - query_start))
     log.debug('Got {}, {}'.format(len(rawdata), np.asarray(rawdata).shape, rawdata))
-    fulldata = tools.nice_data(rawdata, req_list, log=log)
+    nonandata = tools.nice_data(rawdata, req_list, log=log)
+    fulldata = tools.add_timedata(nonandata)
+    log.debug('first 20 times {}'.format(fulldata['time'][:20]))
+    log.debug('first 20 hours {} ({})'.format(fulldata['timeofday'][:20], [t.hour for t in fulldata['time'][:20]]))
+    # sys.exit(0)
 
     log.info('Create a mean signal and its excursions')
     pdict = {
@@ -66,9 +70,22 @@ def main(configfile):
         'tag': 'first_test_hist',
     }
 
+    # pdict['histbins'] =
     lib.scintplots.hist2D_plot(fulldata['timestamp'], 'time', fulldata['sig1_TEC'], 'TEC',
-                               200, 50, xrange=None, yrange=None,
-                               tagdict={}, outdir= './plots/clim', log=log)
+                               300, 150, xrange=None, yrange=None,
+                               tagdict=pdict, outdir= './plots/clim', log=log)
+
+    # houroftheday = np.array([t.hour for t in fulldata['time']])
+    # secondoftheday = np.array([tools.second_of_day(t) for t in fulldata['time']])
+    # print(fulldata['time'])
+    # print(secondoftheday)
+    lib.scintplots.hist2D_plot(fulldata['timeofday'], 'hour_of_day', fulldata['sig1_TEC'], 'TEC',
+                               24, 200, xrange=None, yrange=None,
+                               tagdict=pdict, outdir= './plots/clim', log=log)
+    lib.scintplots.hist2D_plot(fulldata['secondofday'], 'second_of_day', fulldata['sig1_TEC'], 'TEC',
+                               96, 200, xrange=None, yrange=None,
+                               tagdict=pdict, outdir= './plots/clim', log=log)
+
 
 if __name__ == '__main__':
 
