@@ -74,7 +74,7 @@ def hist2D_plot(xdata, xname, ydata, yname, xbins, ybins, xrange=None, yrange=No
     if 'time' in xname.lower(): #isinstance(xdata[0], dt.datetime):
         x_is_time = True
 
-    ax.hist2d(xdata, ydata, bins=histbins, norm=LogNorm())
+    hdata, _xedges, _yedges, _histhandle = ax.hist2d(xdata, ydata, bins=histbins, norm=LogNorm())
     ax.set_ylabel('{} (binned)'.format(yname))
     if yrange is not None:
         ymin, ymax = yrange
@@ -108,4 +108,4 @@ def hist2D_plot(xdata, xname, ydata, yname, xbins, ybins, xrange=None, yrange=No
     fig.savefig(plotfile)
     plt.close(fig)
 
-    return
+    return hdata, histbins
