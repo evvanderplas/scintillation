@@ -1,3 +1,9 @@
+import os, sys
+import datetime as dt
+import numpy as np
+import glob
+import shutil
+
 import asyncio
 import base64
 import hashlib
@@ -86,21 +92,37 @@ def generate_signature_headers(key_id: str, hmac_secret_key: bytearray):
         "Date": now_utc,
         # "Authorization": f'Signature keyId="{key_id}",algorithm="hmac-sha512",'
         # f'signature="{hmac_digest_b64_url_encoded}" ',
-        "Authorization": 'Signature keyId="{}",algorithm="hmac-sha512",'
-        'signature="{}" '.format(key_id, hmac_digest_b64_url_encoded),
+        "Authorization": 'Signature keyId="{}",algorithm="hmac-sha512",signature="{}" '.format(key_id, hmac_digest_b64_url_encoded),
     }
 
+def rename_ISMR_file(fname):
+    '''
+        Make a sensible name from the ISMR filenaming convention
+        SEUT353V.18_.ismr
+    '''
+    HOURS = 'ABCDEFGHIJKLMNOPQRSTUVWX'
+
+    station = fname[0:4]
+    doy = fname[4:7] # day of year
+    hod = HOURS.find(fname[7]) # hour of day
+    yoc = fname[9:11] # year of century
+    fname_dt = dt.datetime(2000+int(yoc), 1, 1, 0, 0, 0) \
+                + dt.timedelta(days=int(doy)) + dt.timedelta(hours=int(hod))
+    new_fname = 'septentrio_{}_{}.ismr'.format(station, fname_dt.strftime('%Y%m%d%H'))
+
+    return new_fname
 
 async def main():
 
     api_key = "eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImQ5ODkzZTkwNTE3OTQ1ODBiZjQxYjUzMWIyMjU5YzgxIiwiaCI6Im11cm11cjEyOCJ9"  # "<API_KEY>"
     hmac_secret = "ZjM0YjczOWExODhjNGMwNmExNGIzMzYwYTZjZGQzNzU="  # "<API_SECRET>"
     dataset_name = "scintillatiedata" # "<DATASET_NAME>"
-    dataset_version = "v1" # "<DATASET_VERSION>"
+    dataset_version = "1" # "<DATASET_VERSION>"
     base_url = "https://api.dataplatform.knmi.nl/dataset-content/v1/datasets"
 
     # folder that contains the files to be uploaded
-    upload_directory = "./data" #"./my-dataset-files"
+    # upload_directory = "./data" #"./my-dataset-files"
+    upload_directory = "/data/storage/trop/users/plas/SW/IONO/SABA"  # "./my-dataset-files"
 
     # Verify that the directory exists
     if not Path(upload_directory).is_dir():
@@ -114,10 +136,22 @@ async def main():
     executor = ThreadPoolExecutor(max_workers=20)
     futures = []
 
+    # storagedir = '/data/storage/trop/users/plas/SW/'
+    # for ismrfile in glob.glob(os.path.join(storagedir, 'IONO', 'SEUT', '*/*.ismr')):
+    #     rename_copy = os.path.join(storagedir, 'temp', rename_ISMR_file(os.path.split(ismrfile)[-1]))
+    #     shutil.copyfile(ismrfile, rename_copy)
+    
+    upload_directory = "/data/storage/trop/users/plas/SW/temp"
+
     # Create tasks that upload the dataset files
     folder_content = Path(upload_directory).glob("*.ismr")
     files_to_upload = [x for x in folder_content if x.is_file()]
     logger.info("Number of files to upload: {}".format(len(files_to_upload)))
+
+    # for upf in (files_to_upload):
+    #     print(upf.name, rename_ISMR_file(upf.name))
+    # raise NotImplementedError('Rename files')
+
     for file_to_upload in files_to_upload:
         # Create future for dataset file
         future = loop.run_in_executor(
@@ -128,6 +162,7 @@ async def main():
             hmac_secret,
             dataset_name,
             dataset_version,
+            # rename_ISMR_file(file_to_upload.name),  #rename_copy.name,
             file_to_upload.name,
             upload_directory,
         )
@@ -142,6 +177,10 @@ async def main():
     if len(failed_uploads) > 0:
         logger.info("Failed to upload the following dataset files")
         logger.info(list(map(lambda x: x[1], failed_uploads)))
+
+    # copied to $storagedir/failed: rerun worked!
+    # ['septentrio_SABA_2019091811.ismr', 'septentrio_SABA_2021071115.ismr']
+    # ['septentrio_SEUT_2019062112.ismr', 'septentrio_SEUT_2019071822.ismr', 'septentrio_SEUT_2020011315.ismr', 'septentrio_SEUT_2020070823.ismr', 'septentrio_SEUT_2020121608.ismr']
 
 
 if __name__ == "__main__":
